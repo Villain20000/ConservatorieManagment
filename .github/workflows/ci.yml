@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DATABASE_URL: postgresql://musicos:musicos@localhost:5432/musicos?schema=public
+  PORT: 3000
+  WEB_ORIGIN: http://localhost:4200
+  NODE_ENV: development
+  JWT_ACCESS_SECRET: ci-only-access-secret-change-me
+  JWT_REFRESH_SECRET: ci-only-refresh-secret-change-me
+  ACCESS_TOKEN_TTL: 15m
+  REFRESH_TOKEN_DAYS: 7
+  COOKIE_SECURE: 'false'
+
+jobs:
+  verify:
+    name: Lint, test, build and smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: musicos
+          POSTGRES_PASSWORD: musicos
+          POSTGRES_DB: musicos
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U musicos -d musicos"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npm run db:generate
+
+      - name: Apply migrations
+        run: npm run prisma:deploy --workspace apps/api
+
+      - name: Seed demo data
+        run: npm run db:seed
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
+      - name: API end-to-end tests
+        run: npm run test:e2e
+
+      - name: Production build
+        run: npm run build
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser smoke tests
+        run: npm run test:e2e:web
+
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7

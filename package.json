@@ -1,0 +1,37 @@
+{
+  "name": "musicos",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MusicOS — multi-tenant conservatory management SaaS",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c blue,magenta \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:api": "npm run start:dev --workspace apps/api",
+    "dev:web": "npm run start --workspace apps/web",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:migrate": "npm run prisma:migrate --workspace apps/api",
+    "db:generate": "npm run prisma:generate --workspace apps/api",
+    "db:seed": "npm run prisma:seed --workspace apps/api",
+    "build": "npm run build --workspace apps/api && npm run build --workspace apps/web",
+    "build:api": "npm run build --workspace apps/api",
+    "build:web": "npm run build --workspace apps/web",
+    "lint": "npm run lint --workspace apps/api && npm run lint --workspace apps/web",
+    "test": "npm run test --workspace apps/api && npm run test --workspace apps/web",
+    "test:api": "npm run test --workspace apps/api",
+    "test:web": "npm run test --workspace apps/web",
+    "test:e2e": "npm run test:e2e --workspace apps/api",
+    "test:e2e:web": "playwright test",
+    "test:all": "npm run test && npm run test:e2e && npm run test:e2e:web"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "concurrently": "^9.2.1",
+    "prettier": "^3.7.4"
+  },
+  "engines": {
+    "node": ">=22.22.3"
+  }
+}

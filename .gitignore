@@ -1,0 +1,15 @@
+node_modules/
+dist/
+coverage/
+.angular/
+.env
+.env.local
+*.log
+.DS_Store
+.playwright/
+test-results/
+playwright-report/
+apps/api/generated/
+apps/api/src/generated/
+apps/api/var/
+.qoder/
