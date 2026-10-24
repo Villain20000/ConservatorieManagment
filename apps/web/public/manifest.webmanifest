@@ -1,0 +1,20 @@
+{
+  "name": "MusicOS · Διαχείριση Ωδείων",
+  "short_name": "MusicOS",
+  "description": "MusicOS — η πλατφόρμα διαχείρισης και ψηφιοποίησης του ωδείου σας.",
+  "lang": "el",
+  "start_url": "/app/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0e1620",
+  "theme_color": "#0e1620",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
