@@ -21,6 +21,7 @@ import { IconComponent } from './icon';
       <div class="mt-4 empty:hidden"><ng-content /></div>
     </div>
   `,
+  host: { '[attr.title]': 'null' },
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class EmptyStateComponent {

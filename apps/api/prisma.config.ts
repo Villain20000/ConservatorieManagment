@@ -9,5 +9,8 @@ export default defineConfig({
   },
   datasource: {
     url: env('DATABASE_URL'),
+    // A throwaway database used to replay migrations when generating diffs and
+    // running `migrate dev`. It is dropped and recreated on every run.
+    shadowDatabaseUrl: env('SHADOW_DATABASE_URL'),
   },
 });

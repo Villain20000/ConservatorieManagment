@@ -10,6 +10,7 @@ import { AuditService } from '../../common/audit.service.js';
 import { pageMeta } from '../../common/dto/pagination.dto.js';
 import { NotificationsService } from '../../common/notifications.service.js';
 import { ScopeService } from '../../common/scope.service.js';
+import { SoftDeleteService } from '../../common/soft-delete.service.js';
 import { TenantContextService } from '../../common/tenant-context.service.js';
 import { PrismaService } from '../../database/prisma.service.js';
 import { Prisma } from '../../generated/prisma/client.js';
@@ -63,6 +64,7 @@ export class DocumentsService {
     private readonly numbering: NumberingService,
     private readonly outbox: OutboxService,
     private readonly notifications: NotificationsService,
+    private readonly softDelete: SoftDeleteService,
     @Inject(OBJECT_STORAGE) private readonly storage: ObjectStorage,
   ) {}
 
@@ -482,6 +484,29 @@ export class DocumentsService {
     });
     if (!record) throw new NotFoundException('Το έγγραφο δεν βρέθηκε');
     return record;
+  }
+
+  /** Only drafts are removable; an issued document is archived, never deleted. */
+  async remove(id: string) {
+    await this.findTenantRecord(id);
+    await this.softDelete.assertDocumentDeletable(id);
+    await this.prisma.documentRecord.delete({ where: { id } });
+    await this.audit.record('document.deleted', 'DocumentRecord', id);
+    return { success: true };
+  }
+
+  async restore(id: string) {
+    const record = await this.prisma.documentRecord.findFirst({
+      where: { id, tenantId: this.ctx.tenantId, deletedAt: { not: null } },
+    });
+    if (!record) throw new NotFoundException('Το έγγραφο δεν βρέθηκε');
+
+    const restored = await this.prisma.documentRecord.update({
+      where: { id },
+      data: { deletedAt: null, deletedById: null },
+    });
+    await this.audit.record('document.restored', 'DocumentRecord', id);
+    return restored;
   }
 
   private async buildContext(

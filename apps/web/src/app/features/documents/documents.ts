@@ -120,17 +120,16 @@ const DOCUMENT_STATUSES: DocumentStatus[] = ['DRAFT', 'ISSUED', 'ARCHIVED'];
                 [size]="15"
                 class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3"
               />
-              <input
+              <input name="search"
                 type="search"
                 class="input pl-9"
                 formControlName="search"
-                [attr.placeholder]="'documents.searchPlaceholder' | transloco"
-              />
+                [attr.placeholder]="'documents.searchPlaceholder' | transloco" autocomplete="off" />
             </div>
           </label>
           <label class="field">
             <span class="field-label">{{ 'documents.typeFilter' | transloco }}</span>
-            <select class="select" formControlName="type">
+            <select name="type" class="select" formControlName="type">
               <option value="">{{ 'common.all' | transloco }}</option>
               @for (type of documentTypes; track type) {
                 <option [value]="type">
@@ -141,7 +140,7 @@ const DOCUMENT_STATUSES: DocumentStatus[] = ['DRAFT', 'ISSUED', 'ARCHIVED'];
           </label>
           <label class="field">
             <span class="field-label">{{ 'common.status' | transloco }}</span>
-            <select class="select" formControlName="status">
+            <select name="status" class="select" formControlName="status">
               <option value="">{{ 'common.allStatuses' | transloco }}</option>
               @for (status of documentStatuses; track status) {
                 <option [value]="status">{{ ('status.' + status) | transloco }}</option>
@@ -150,7 +149,7 @@ const DOCUMENT_STATUSES: DocumentStatus[] = ['DRAFT', 'ISSUED', 'ARCHIVED'];
           </label>
           <label class="field">
             <span class="field-label">{{ 'documents.studentFilter' | transloco }}</span>
-            <select class="select" formControlName="studentId">
+            <select name="studentId" class="select" formControlName="studentId">
               <option value="">{{ 'common.all' | transloco }}</option>
               @for (student of students(); track student.id) {
                 <option [value]="student.id">
@@ -161,7 +160,7 @@ const DOCUMENT_STATUSES: DocumentStatus[] = ['DRAFT', 'ISSUED', 'ARCHIVED'];
           </label>
           <label class="field">
             <span class="field-label">{{ 'documents.examFilter' | transloco }}</span>
-            <select class="select" formControlName="examId">
+            <select name="examId" class="select" formControlName="examId">
               <option value="">{{ 'common.all' | transloco }}</option>
               @for (exam of exams(); track exam.id) {
                 <option [value]="exam.id">{{ exam.title }}</option>
@@ -170,11 +169,11 @@ const DOCUMENT_STATUSES: DocumentStatus[] = ['DRAFT', 'ISSUED', 'ARCHIVED'];
           </label>
           <label class="field">
             <span class="field-label">{{ 'documents.fromFilter' | transloco }}</span>
-            <input type="date" class="input" formControlName="from" />
+            <input name="from" type="date" class="input" formControlName="from" autocomplete="off" />
           </label>
           <label class="field">
             <span class="field-label">{{ 'documents.toFilter' | transloco }}</span>
-            <input type="date" class="input" formControlName="to" />
+            <input name="to" type="date" class="input" formControlName="to" autocomplete="off" />
           </label>
         </div>
       </form>
@@ -350,7 +349,7 @@ const DOCUMENT_STATUSES: DocumentStatus[] = ['DRAFT', 'ISSUED', 'ARCHIVED'];
         @if (isExamRecord()) {
           <label class="field">
             <span class="field-label">{{ 'documents.issueDrawer.exam' | transloco }}</span>
-            <select class="select" formControlName="examId">
+            <select name="examId" class="select" formControlName="examId">
               <option value="">{{ 'common.all' | transloco }}</option>
               @for (exam of exams(); track exam.id) {
                 <option [value]="exam.id">{{ exam.title }}</option>
@@ -363,7 +362,7 @@ const DOCUMENT_STATUSES: DocumentStatus[] = ['DRAFT', 'ISSUED', 'ARCHIVED'];
         } @else {
           <label class="field">
             <span class="field-label">{{ 'documents.issueDrawer.student' | transloco }}</span>
-            <select class="select" formControlName="studentId">
+            <select name="studentId" class="select" formControlName="studentId">
               <option value="">{{ 'finance.form.selectStudent' | transloco }}</option>
               @for (student of students(); track student.id) {
                 <option [value]="student.id">
@@ -375,7 +374,7 @@ const DOCUMENT_STATUSES: DocumentStatus[] = ['DRAFT', 'ISSUED', 'ARCHIVED'];
         }
         <label class="field">
           <span class="field-label">{{ 'documents.issueDrawer.type' | transloco }}</span>
-          <select class="select" formControlName="type" (change)="onTypeChange()">
+          <select name="type" class="select" formControlName="type" (change)="onTypeChange()">
             @for (type of issueTypes; track type) {
               <option [value]="type">{{ ('documentType.' + type) | transloco }}</option>
             }
@@ -383,7 +382,7 @@ const DOCUMENT_STATUSES: DocumentStatus[] = ['DRAFT', 'ISSUED', 'ARCHIVED'];
         </label>
         <label class="field">
           <span class="field-label">{{ 'documents.issueDrawer.template' | transloco }}</span>
-          <select class="select" formControlName="templateKey">
+          <select name="templateKey" class="select" formControlName="templateKey">
             @for (template of templatesForType(); track template.key) {
               <option [value]="template.key">{{ template.title }}</option>
             }
@@ -391,14 +390,14 @@ const DOCUMENT_STATUSES: DocumentStatus[] = ['DRAFT', 'ISSUED', 'ARCHIVED'];
         </label>
         <label class="field">
           <span class="field-label">{{ 'documents.issueDrawer.title' | transloco }}</span>
-          <input class="input" formControlName="title" maxlength="200" />
+          <input name="title" class="input" formControlName="title" maxlength="200" autocomplete="off" />
         </label>
         <label class="field">
           <span class="field-label">{{ 'common.notes' | transloco }}</span>
-          <textarea class="textarea" rows="3" formControlName="notes" maxlength="2000"></textarea>
+          <textarea name="notes" class="textarea" rows="3" formControlName="notes" maxlength="2000"></textarea>
         </label>
         <label class="flex items-center gap-2 text-[13px] text-ink-2">
-          <input type="checkbox" formControlName="draft" />
+          <input name="draft" type="checkbox" formControlName="draft" autocomplete="off" />
           {{ 'documents.issueDrawer.draft' | transloco }}
         </label>
         <p class="text-[12px] leading-relaxed text-ink-3">
@@ -700,7 +699,7 @@ export class DocumentsPage {
 
   private async loadExams(): Promise<void> {
     try {
-      const response = await firstValueFrom(this.api.list<Exam>('/exams', { pageSize: 100 }));
+      const response = await firstValueFrom(this.api.list<Exam>('/exams'));
       this.exams.set(response.data);
     } catch {
       this.exams.set([]);

@@ -14,7 +14,11 @@ export interface NavSection {
   items: NavItem[];
 }
 
-export function navSectionsFor(role: Role | null, has: (permission: Permission) => boolean): NavSection[] {
+export function navSectionsFor(
+  role: Role | null,
+  has: (permission: Permission) => boolean,
+  can?: (feature: 'finance' | 'exams' | 'portals' | 'multiBranch') => boolean,
+): NavSection[] {
   if (role === 'STUDENT' || role === 'GUARDIAN') {
     return [
       {
@@ -27,6 +31,7 @@ export function navSectionsFor(role: Role | null, has: (permission: Permission) 
           { labelKey: 'nav.portalSchedule', icon: 'calendar', route: '/app/portal/schedule' },
           { labelKey: 'nav.portalAttendance', icon: 'check-circle', route: '/app/portal/attendance' },
           { labelKey: 'nav.portalResults', icon: 'award', route: '/app/portal/results' },
+          { labelKey: 'nav.assignments', icon: 'book', route: '/app/portal/assignments' },
           { labelKey: 'nav.portalFinance', icon: 'credit-card', route: '/app/portal/finance' },
           { labelKey: 'nav.portalDocuments', icon: 'folder', route: '/app/portal/documents' },
           { labelKey: 'nav.practice', icon: 'music', route: '/app/practice' },
@@ -62,16 +67,21 @@ export function navSectionsFor(role: Role | null, has: (permission: Permission) 
   if (has('attendance.read')) {
     teaching.push({ labelKey: 'nav.attendance', icon: 'check-circle', route: '/app/attendance' });
   }
+  if (has('schedule.read')) {
+    teaching.push({ labelKey: 'nav.assignments', icon: 'book', route: '/app/assignments' });
+  }
   teaching.push({ labelKey: 'nav.practice', icon: 'music', route: '/app/practice' });
   if (teaching.length) {
     sections.push({ labelKey: 'nav.teaching', items: teaching });
   }
 
   const business: NavItem[] = [];
-  if (has('finance.read')) {
+  // A module the plan does not include is hidden rather than shown-and-blocked:
+  // the API would 403 anyway, and a dead link is worse than no link.
+  if (has('finance.read') && (can?.('finance') ?? true)) {
     business.push({ labelKey: 'nav.finance', icon: 'credit-card', route: '/app/finance' });
   }
-  if (has('exams.read')) {
+  if (has('exams.read') && (can?.('exams') ?? true)) {
     business.push({ labelKey: 'nav.exams', icon: 'award', route: '/app/exams' });
   }
   if (has('documents.read')) {

@@ -74,6 +74,7 @@ function createHarness() {
     numbering as never,
     outbox as never,
     notifications as never,
+    { assertDocumentDeletable: vi.fn() } as never,
     storage as never,
   );
   return { prisma, tx, ctx, scope, audit, pdf, numbering, outbox, notifications, storage, service };

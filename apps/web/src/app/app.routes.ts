@@ -16,6 +16,28 @@ export const routes: Routes = [
     loadComponent: () => import('./features/auth/login').then((m) => m.LoginPage),
   },
   {
+    path: 'forgot-password',
+    title: 'MusicOS · Επαναφορά κωδικού',
+    canActivate: [guestGuard],
+    loadComponent: () =>
+      import('./features/auth/forgot-password').then((m) => m.ForgotPasswordPage),
+  },
+  {
+    path: 'reset-password',
+    title: 'MusicOS · Νέος κωδικός',
+    canActivate: [guestGuard],
+    loadComponent: () =>
+      import('./features/auth/reset-password').then((m) => m.ResetPasswordPage),
+  },
+  {
+    // Deliberately not guestGuard: the user has a valid password but no session
+    // yet, so `isAuthenticated` is still false while the challenge is pending.
+    path: 'mfa',
+    title: 'MusicOS · Επαλήθευση',
+    loadComponent: () =>
+      import('./features/auth/mfa-challenge').then((m) => m.MfaChallengePage),
+  },
+  {
     path: 'app',
     canActivate: [authGuard],
     loadComponent: () => import('./layout/app-shell').then((m) => m.AppShell),
@@ -92,6 +114,13 @@ export const routes: Routes = [
           import('./features/documents/documents').then((m) => m.DocumentsPage),
       },
       {
+        path: 'assignments',
+        title: 'MusicOS · Εργασίες',
+        canActivate: [permissionGuard('schedule.read')],
+        loadComponent: () =>
+          import('./features/assignments/assignments').then((m) => m.AssignmentsPage),
+      },
+      {
         path: 'announcements',
         title: 'MusicOS · Ανακοινώσεις',
         canActivate: [permissionGuard('announcements.read')],
@@ -137,6 +166,13 @@ export const routes: Routes = [
         canActivate: [permissionGuard('portal.read'), roleGuard('STUDENT', 'GUARDIAN')],
         loadComponent: () =>
           import('./features/portal/portal-documents').then((m) => m.PortalDocumentsPage),
+      },
+      {
+        path: 'portal/assignments',
+        title: 'MusicOS · Εργασίες',
+        canActivate: [permissionGuard('portal.read'), roleGuard('STUDENT', 'GUARDIAN')],
+        loadComponent: () =>
+          import('./features/portal/portal-assignments').then((m) => m.PortalAssignmentsPage),
       },
       {
         path: 'practice',

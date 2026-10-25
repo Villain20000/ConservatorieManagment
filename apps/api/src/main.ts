@@ -6,10 +6,17 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { AppModule } from './app.module.js';
+import { JsonLogger } from './common/logging/json.logger.js';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { cors: false });
+  const app = await NestFactory.create(AppModule, { cors: false, bufferLogs: true });
   const config = app.get(ConfigService);
+
+  if (config.get<string>('LOG_FORMAT') === 'json') {
+    app.useLogger(app.get(JsonLogger));
+  } else {
+    app.flushLogs();
+  }
 
   app.setGlobalPrefix('api');
   app.use(helmet({ contentSecurityPolicy: false }));

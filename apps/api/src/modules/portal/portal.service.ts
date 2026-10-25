@@ -4,6 +4,7 @@ import { pageMeta } from '../../common/dto/pagination.dto.js';
 import { ScopeService } from '../../common/scope.service.js';
 import { TenantContextService } from '../../common/tenant-context.service.js';
 import { PrismaService } from '../../database/prisma.service.js';
+import { AssignmentsService } from '../assignments/assignments.service.js';
 import { DocumentsService } from '../documents/documents.service.js';
 import type {
   PortalAttendanceQueryDto,
@@ -19,6 +20,7 @@ export class PortalService {
     private readonly ctx: TenantContextService,
     private readonly scope: ScopeService,
     private readonly documentsService: DocumentsService,
+    private readonly assignmentsService: AssignmentsService,
   ) {}
 
   async children() {
@@ -395,6 +397,11 @@ export class PortalService {
   async documentPdf(documentId: string, studentId?: string) {
     const resolved = await this.resolveStudentId(studentId);
     return this.documentsService.pdfForStudent(documentId, resolved);
+  }
+
+  /** Assignments visible to the selected student (portal). */
+  async assignments(studentId?: string) {
+    return this.assignmentsService.portalList(studentId);
   }
 
   private async resolveStudentId(studentId?: string): Promise<string> {

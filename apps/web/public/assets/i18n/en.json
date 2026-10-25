@@ -89,7 +89,8 @@
     "updated": "Updated",
     "filterActive": "Active filters",
     "resetFilters": "Clear filters",
-    "download": "Download"
+    "download": "Download",
+    "requiredField": "This field is required"
   },
   "roles": {
     "DIRECTOR": "Director",
@@ -146,7 +147,9 @@
     "PLANNED": "Planned",
     "OPEN": "Open",
     "CLOSED": "Closed",
-    "SIGNED": "Signed"
+    "SIGNED": "Signed",
+    "SUBMITTED": "Submitted",
+    "GRADED": "Graded"
   },
   "lessonType": {
     "INDIVIDUAL": "Individual",
@@ -165,7 +168,8 @@
     "GRADE_TRANSCRIPT": "Grade transcript",
     "DIPLOMA": "Diploma",
     "CERTIFICATE": "Certificate",
-    "OTHER": "Document"
+    "OTHER": "Document",
+    "EXAM_RECORD": "Exam record"
   },
   "weekday": {
     "1": "Monday",
@@ -207,7 +211,8 @@
     "platform": "Platform",
     "tenants": "Conservatories",
     "portalDocuments": "Documents",
-    "practice": "Practice room"
+    "practice": "Practice room",
+    "assignments": "Assignments"
   },
   "auth": {
     "eyebrow": "Conservatory management platform",
@@ -242,7 +247,49 @@
     "emailRequired": "Enter your email.",
     "passwordRequired": "Enter your password.",
     "backToLogin": "Back to sign in",
-    "sessionExpired": "Your session has expired. Please sign in again."
+    "sessionExpired": "Your session has expired. Please sign in again.",
+    "forgot": {
+      "title": "Forgot your password?",
+      "subtitle": "Enter your account email and we will send you a reset link.",
+      "email": "Email",
+      "submit": "Send reset link",
+      "sending": "Sending…",
+      "sent": "Check your inbox",
+      "sentHint": "If the address belongs to an account, a reset link is on its way. The link expires shortly.",
+      "backToLogin": "Back to sign in"
+    },
+    "mfa": {
+      "challengeTitle": "Two-step verification",
+      "challengeHint": "Enter the 6-digit code from your authenticator app.",
+      "code": "Verification code",
+      "invalidCode": "That code is not valid. Try again.",
+      "locked": "Too many attempts. Try again later.",
+      "useRecovery": "Use a recovery code instead",
+      "recoveryCode": "Recovery code",
+      "recoveryHint": "Enter one of the recovery codes you saved when enabling two-step verification.",
+      "verify": "Verify",
+      "verifying": "Verifying…",
+      "expired": "This verification challenge has expired",
+      "expiredHint": "Start signing in again to receive a new verification challenge."
+    },
+    "reset": {
+      "title": "Set a new password",
+      "subtitle": "Choose a strong password for your account.",
+      "password": "New password",
+      "confirm": "Confirm password",
+      "submit": "Save password",
+      "saving": "Saving…",
+      "done": "Password updated",
+      "doneHint": "Your password has been changed. Sign in with your new password.",
+      "invalid": "This reset link is invalid",
+      "invalidHint": "The link is invalid or has expired. Request a new one to continue.",
+      "mismatch": "The passwords do not match.",
+      "requestNew": "Request a new link",
+      "tooShort": "Use at least {{min}} characters.",
+      "strengthWeak": "Weak password",
+      "strengthFair": "Fair password",
+      "strengthStrong": "Strong password"
+    }
   },
   "demo": {
     "superadmin": "Super Admin",
@@ -1003,7 +1050,9 @@
       "profile": "Profile",
       "security": "Security",
       "preferences": "Preferences",
-      "tenant": "Conservatory"
+      "tenant": "Conservatory",
+      "calendar": "Calendar",
+      "deleted": "Deleted items"
     },
     "profile": {
       "title": "Account details",
@@ -1057,6 +1106,25 @@
     "saved": "Preferences saved."
   },
   "portal": {
+    "assignments": {
+      "title": "Assignments",
+      "subtitle": "Your study assignments",
+      "empty": "No active assignments",
+      "due": "Due",
+      "submit": "Submit",
+      "submitTitle": "Submit work",
+      "submitHint": "Write your submission text",
+      "content": "Submission text",
+      "contentHint": "Describe what you practised…",
+      "previous": "Previous submission:",
+      "submitted": "Submission recorded",
+      "submitError": "Submission failed",
+      "state": {
+        "pending": "Pending",
+        "submitted": "Submitted",
+        "graded": "Graded"
+      }
+    },
     "eyebrow": "Student portal",
     "schedule": {
       "title": "My schedule",
@@ -1288,5 +1356,98 @@
       "clear": "Discard",
       "hint": "AI suggestions are never published automatically."
     }
+  },
+  "assignments": {
+    "title": "Assignments",
+    "subtitle": "Study assignments and submission tracking",
+    "new": "New assignment",
+    "all": "All",
+    "open": "Open",
+    "closed": "Closed",
+    "empty": "No assignments",
+    "emptyHint": "Create the first assignment for your students.",
+    "manage": "Manage assignment",
+    "grade": "Grade",
+    "gradeFor": "Grade: {{name}}",
+    "saveGrade": "Save grade",
+    "graded": "Grade saved",
+    "created": "Assignment created",
+    "studentsRequired": "Select at least one student",
+    "saveError": "Saving failed",
+    "loadError": "Could not load data",
+    "columns": {
+      "title": "Title",
+      "program": "Program",
+      "assigned": "Assigned",
+      "due": "Due",
+      "status": "Status",
+      "progress": "Graded",
+      "student": "Student"
+    },
+    "form": {
+      "title": "Title",
+      "description": "Description",
+      "program": "Program",
+      "due": "Due date",
+      "students": "Students",
+      "feedback": "Feedback"
+    },
+    "create": {
+      "title": "New assignment",
+      "hint": "Set a title, due date and students"
+    },
+    "detail": {
+      "title": "Assignment details",
+      "hint": "Submissions per student",
+      "due": "Due",
+      "state": "State",
+      "grade": "Grade"
+    },
+    "state": {
+      "pending": "Pending",
+      "submitted": "Submitted",
+      "graded": "Graded"
+    }
+  },
+  "calendar": {
+    "title": "School calendar",
+    "subtitle": "Holiday, closure and makeup-day rules applied when lessons are generated.",
+    "date": "Date",
+    "name": "Name",
+    "type": "Type",
+    "branch": "Branch",
+    "allBranches": "All branches",
+    "add": "Add exception",
+    "created": "Calendar exception added.",
+    "remove": "Remove exception",
+    "removeHint": "Remove “{{name}}”? Lessons already generated are not changed automatically.",
+    "removed": "Calendar exception removed.",
+    "empty": "No calendar exceptions",
+    "emptyHint": "Add holidays, closures or makeup days so scheduling honours them.",
+    "kind": {
+      "HOLIDAY": "Holiday",
+      "CLOSED": "Closed",
+      "MAKEUP_DAY": "Makeup day"
+    }
+  },
+  "trash": {
+    "title": "Deleted items",
+    "subtitle": "Restore records that were recently deleted from this conservatory.",
+    "deletedAt": "Deleted",
+    "deletedBy": "Deleted by",
+    "restore": "Restore",
+    "restored": "Item restored.",
+    "empty": "Nothing in the trash",
+    "students": "Students",
+    "teachers": "Teachers",
+    "documents": "Documents",
+    "series": "Lesson series",
+    "announcements": "Announcements"
+  },
+  "entitlements": {
+    "suspended": "Subscription suspended",
+    "suspendedHint": "This conservatory's subscription is suspended. Contact the platform administrator to restore access.",
+    "trialExpired": "The trial period has ended. Contact the platform administrator to continue.",
+    "trialLeft": "Trial days remaining: {{count}}"
   }
 }

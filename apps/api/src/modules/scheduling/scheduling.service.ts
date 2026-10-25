@@ -12,6 +12,8 @@ import { TenantContextService } from '../../common/tenant-context.service.js';
 import { PrismaService } from '../../database/prisma.service.js';
 import { Prisma } from '../../generated/prisma/client.js';
 import type {
+  CalendarDayInputDto,
+  CalendarDayQueryDto,
   CancelLessonDto,
   ConflictCheckDto,
   CreateLessonSeriesDto,
@@ -20,6 +22,7 @@ import type {
   SeriesQueryDto,
   UpdateLessonSeriesDto,
 } from './dto/scheduling.dto.js';
+import { addDays, buildOccurrences as buildRecurrence, groupRules, type CalendarDayRule } from './recurrence.js';
 
 const TZ = 'Europe/Athens';
 const MAX_LESSONS_PER_SERIES = 500;
@@ -29,6 +32,7 @@ const MAX_QUERY_DAYS = 120;
 interface Occurrence {
   startsAt: Date;
   endsAt: Date;
+  date?: string;
 }
 
 interface Conflict {
@@ -49,6 +53,13 @@ function isoDate(value: Date | string): string {
   return value.toISOString().slice(0, 10);
 }
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Guards path identifiers before they reach the driver (which would 500). */
+function isUuid(value: string): boolean {
+  return UUID_PATTERN.test(value);
+}
+
 function athensDateTime(date: string, time: string): Date {
   return fromZonedTime(`${date}T${time}:00`, TZ);
 }
@@ -56,12 +67,6 @@ function athensDateTime(date: string, time: string): Date {
 function isoWeekday(date: string): number {
   const day = new Date(`${date}T00:00:00.000Z`).getUTCDay();
   return ((day + 6) % 7) + 1;
-}
-
-function addDays(date: string, days: number): string {
-  const value = new Date(`${date}T00:00:00.000Z`);
-  value.setUTCDate(value.getUTCDate() + days);
-  return value.toISOString().slice(0, 10);
 }
 
 function daysBetween(from: string, to: string): number {
@@ -166,6 +171,99 @@ export class SchedulingService {
     };
   }
 
+  // ───────────────────────── Calendar (holidays & make-up days) ─────────────────────────
+
+  /** Tenant and branch calendar rules inside a range, ordered by date. */
+  async listCalendarDays(query: CalendarDayQueryDto) {
+    const tenantId = this.ctx.tenantId;
+    const today = isoDate(new Date());
+    const from = query.from ?? `${today.slice(0, 4)}-01-01`;
+    const to = query.to ?? `${Number(today.slice(0, 4)) + 1}-12-31`;
+    if (to < from) {
+      throw new BadRequestException('Η ημερομηνία λήξης πρέπει να είναι μετά την έναρξη');
+    }
+    const rows = await this.prisma.calendarDay.findMany({
+      where: {
+        tenantId,
+        date: { gte: new Date(`${from}T00:00:00.000Z`), lte: new Date(`${to}T00:00:00.000Z`) },
+        ...(query.branchId
+          ? { OR: [{ branchId: null }, { branchId: query.branchId }] }
+          : {}),
+      },
+      include: {
+        branch: {
+          select: { id: true, name: true },
+        },
+      },
+      orderBy: [{ date: 'asc' }, { kind: 'asc' }],
+   });
+    return {
+      data: rows.map((row) => ({ ...row, date: isoDate(row.date) })),
+    };
+  }
+
+  /**
+   * Adds a holiday, closure or make-up day. Branch-scoped rules must name a
+   * branch of this tenant; duplicates are rejected by the database constraint
+   * and surfaced as a 409 rather than a 500.
+   */
+  async createCalendarDay(dto: CalendarDayInputDto) {
+    const tenantId = this.ctx.tenantId;
+    if (dto.branchId) {
+      const branch = await this.prisma.branch.findFirst({
+        where: { id: dto.branchId, tenantId },
+        select: { id: true },
+     });
+      if (!branch) throw new NotFoundException('Το παράρτημα δεν βρέθηκε');
+    }
+    try {
+      const created = await this.prisma.calendarDay.create({
+        data: {
+          tenantId,
+          branchId: dto.branchId ?? null,
+          date: new Date(`${dto.date}T00:00:00.000Z`),
+          kind: dto.kind,
+          name: dto.name.trim(),
+        },
+     });
+      await this.audit.record('calendarDay.created', 'CalendarDay', created.id, {
+        date: dto.date,
+        kind: dto.kind,
+        branchId: dto.branchId ?? null,
+     });
+      return { ...created, date: isoDate(created.date) };
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException({
+          code: 'CALENDAR_DAY_EXISTS',
+          message: 'Υπάρχει ήδη καταχώριση για αυτή την ημέρα',
+       });
+      }
+      throw error;
+    }
+  }
+
+  async removeCalendarDay(id: string) {
+    // A malformed path id is a client error, not a 500 from the driver.
+    if (!isUuid(id)) throw new NotFoundException('Η καταχώριση δεν βρέθηκε');
+    const existing = await this.prisma.calendarDay.findFirst({
+      where: { id, tenantId: this.ctx.tenantId },
+      select: { id: true, date: true, kind: true, name: true },
+         });
+    if (!existing) throw new NotFoundException('Η καταχώριση δεν βρέθηκε');
+    await this.prisma.calendarDay.deleteMany({
+      where: { id, tenantId: this.ctx.tenantId },
+         });
+    await this.audit.record('calendarDay.deleted', 'CalendarDay', id, {
+      date: isoDate(existing.date),
+      kind: existing.kind,
+         });
+    return { success: true };
+  }
+
   async listSeries(query: SeriesQueryDto) {
     const where: Prisma.LessonSeriesWhereInput = { tenantId: this.ctx.tenantId };
     if (query.branchId) where.branchId = query.branchId;
@@ -198,7 +296,7 @@ export class SchedulingService {
         },
       },
       orderBy: [{ weekday: 'asc' }, { startTime: 'asc' }],
-    });
+         });
   }
 
   async createSeries(dto: CreateLessonSeriesDto) {
@@ -207,7 +305,7 @@ export class SchedulingService {
     await this.assertSeriesRefs(dto, studentIds);
 
     const range = await this.resolveRange(dto.validFrom, dto.validTo);
-    const occurrences = this.buildOccurrences(
+    const occurrences = await this.buildOccurrences(
       {
         validFrom: range.validFrom,
         validTo: range.validTo,
@@ -216,6 +314,7 @@ export class SchedulingService {
         durationMinutes: dto.durationMinutes,
       },
       range.validFrom,
+      dto.branchId,
     );
     if (!occurrences.length) {
       throw new BadRequestException('Το πρόγραμμα δεν παράγει μαθήματα στο διάστημα ισχύος');
@@ -225,7 +324,7 @@ export class SchedulingService {
       teacherId: dto.teacherId,
       roomId: dto.roomId,
       studentIds,
-    });
+         });
     if (conflicts.length) this.throwConflicts(conflicts);
 
     const series = await this.prisma.$transaction(async (tx) => {
@@ -246,7 +345,7 @@ export class SchedulingService {
           validTo: new Date(`${range.validTo}T00:00:00.000Z`),
           status: dto.status ?? 'ACTIVE',
         },
-      });
+     });
 
       if (studentIds.length) {
         await tx.lessonSeriesStudent.createMany({
@@ -256,18 +355,18 @@ export class SchedulingService {
             studentId,
           })),
           skipDuplicates: true,
-        });
+       });
       }
 
       if (created.status === 'ACTIVE') {
         await this.materialize(tx, created, occurrences, studentIds);
       }
       return created;
-    });
+         });
 
     await this.audit.record('lessonSeries.created', 'LessonSeries', series.id, {
       lessons: occurrences.length,
-    });
+         });
     return this.getSeries(series.id);
   }
 
@@ -275,7 +374,7 @@ export class SchedulingService {
     const existing = await this.prisma.lessonSeries.findFirst({
       where: { id, tenantId: this.ctx.tenantId },
       include: { students: { select: { studentId: true } } },
-    });
+         });
     if (!existing) throw new NotFoundException('Το πρόγραμμα δεν βρέθηκε');
 
     const merged = {
@@ -311,15 +410,18 @@ export class SchedulingService {
 
     const occurrences =
       merged.status === 'ACTIVE'
-        ? this.buildOccurrences(
-            {
-              validFrom: range.validFrom,
-              validTo: range.validTo,
-              weekday: merged.weekday,
-              startTime: merged.startTime,
-              durationMinutes: merged.durationMinutes,
-            },
-            range.validFrom > today ? range.validFrom : today,
+        ? (
+            await this.buildOccurrences(
+              {
+                validFrom: range.validFrom,
+                validTo: range.validTo,
+                weekday: merged.weekday,
+                startTime: merged.startTime,
+                durationMinutes: merged.durationMinutes,
+              },
+              range.validFrom > today ? range.validFrom : today,
+              merged.branchId,
+            )
           ).filter((occurrence) => occurrence.endsAt >= new Date())
         : [];
 
@@ -351,9 +453,9 @@ export class SchedulingService {
           validTo: new Date(`${range.validTo}T00:00:00.000Z`),
           status: merged.status,
         },
-      });
+     });
 
-      await tx.lessonSeriesStudent.deleteMany({ where: { lessonSeriesId: id } });
+      await tx.lessonSeriesStudent.deleteMany({ where: { lessonSeriesId: id}});
       if (studentIds.length) {
         await tx.lessonSeriesStudent.createMany({
           data: studentIds.map((studentId) => ({
@@ -362,7 +464,7 @@ export class SchedulingService {
             studentId,
           })),
           skipDuplicates: true,
-        });
+       });
       }
 
       await tx.lesson.deleteMany({
@@ -371,23 +473,23 @@ export class SchedulingService {
           startsAt: { gte: new Date() },
           status: { in: ['SCHEDULED', 'RESCHEDULED'] },
         },
-      });
+     });
 
       if (merged.status === 'ACTIVE' && occurrences.length) {
         await this.materialize(tx, { ...existing, ...merged }, occurrences, studentIds);
       }
-    });
+   });
 
     await this.audit.record('lessonSeries.updated', 'LessonSeries', id, {
       fields: Object.keys(dto),
-    });
+   });
     return this.getSeries(id);
   }
 
   async endSeries(id: string) {
     const series = await this.prisma.lessonSeries.findFirst({
       where: { id, tenantId: this.ctx.tenantId },
-    });
+   });
     if (!series) throw new NotFoundException('Το πρόγραμμα δεν βρέθηκε');
 
     await this.prisma.$transaction([
@@ -401,6 +503,88 @@ export class SchedulingService {
       }),
     ]);
     await this.audit.record('lessonSeries.ended', 'LessonSeries', id);
+    return { success: true };
+  }
+
+  /**
+   * Trashes a series and cancels its future lessons. Recoverable via `restoreSeries`,
+   * which re-materialises the occurrences. `endSeries` remains the explicit way to
+   * finish a series permanently without removing it from history.
+   */
+  async removeSeries(id: string) {
+    const series = await this.prisma.lessonSeries.findFirst({
+      where: { id, tenantId: this.ctx.tenantId },
+         });
+    if (!series) throw new NotFoundException('Το πρόγραμμα δεν βρέθηκε');
+    await this.prisma.$transaction(async (tx) => {
+      // The series is soft-deleted, so its unique (series, start) key still
+      // reserves the slot; future occurrences are removed explicitly and are
+      // re-materialised by `restoreSeries`.
+      await tx.lessonSeries.delete({ where: { id}});
+      const future = await tx.lesson.findMany({
+        where: {
+          lessonSeriesId: id,
+          startsAt: { gte: new Date() },
+          status: { in: ['SCHEDULED', 'RESCHEDULED'] },
+        },
+        select: { id: true },
+     });
+      const ids = future.map((lesson) => lesson.id);
+      if (ids.length) {
+        // Notes and attendance reference lessons with FK RESTRICT.
+        await tx.attendance.deleteMany({
+          where: { lessonId: { in: ids } },
+        });
+        await tx.lessonNote.deleteMany({
+          where: { lessonId: { in: ids } },
+        });
+      }
+    });
+    await this.audit.record('lessonSeries.deleted', 'LessonSeries', id);
+    return { success: true };
+  }
+
+  async restoreSeries(id: string) {
+    const series = await this.prisma.lessonSeries.findFirst({
+      where: { id, tenantId: this.ctx.tenantId, deletedAt: { not: null } },
+      include: { students: true },
+    });
+    if (!series) throw new NotFoundException('Το πρόγραμμα δεν βρέθηκε');
+
+    const restored = await this.prisma.lessonSeries.update({
+      where: { id },
+      data: { deletedAt: null, deletedById: null },
+    });
+
+    // Trashing cancelled the future occurrences; bring them back from the
+    // series definition rather than trying to resurrect deleted lesson rows.
+    const range = await this.resolveRange(
+      isoDate(restored.validFrom),
+      restored.validTo ? isoDate(restored.validTo) : undefined,
+    );
+    const today = isoDate(new Date());
+    const occurrences = await this.buildOccurrences(
+      {
+        validFrom: range.validFrom,
+        validTo: range.validTo,
+        weekday: restored.weekday,
+        startTime: restored.startTime,
+        durationMinutes: restored.durationMinutes,
+      },
+      range.validFrom > today ? range.validFrom : today,
+      restored.branchId,
+    );
+
+    await this.prisma.$transaction((tx) =>
+      this.materialize(
+        tx,
+        restored,
+        occurrences,
+        series.students.map((row) => row.studentId),
+      ),
+    );
+
+    await this.audit.record('lessonSeries.restored', 'LessonSeries', id);
     return { success: true };
   }
 
@@ -422,7 +606,7 @@ export class SchedulingService {
         },
         _count: { select: { lessons: true } },
       },
-    });
+         });
     if (!series) throw new NotFoundException('Το πρόγραμμα δεν βρέθηκε');
     return series;
   }
@@ -464,7 +648,7 @@ export class SchedulingService {
       where,
       include: lessonInclude,
       orderBy: { startsAt: 'asc' },
-    });
+         });
 
     return {
       data: lessons,
@@ -482,7 +666,7 @@ export class SchedulingService {
           orderBy: { createdAt: 'desc' },
         },
       },
-    });
+         });
     if (!lesson) throw new NotFoundException('Το μάθημα δεν βρέθηκε');
     await this.assertLessonAccess(lesson);
     return lesson;
@@ -495,7 +679,7 @@ export class SchedulingService {
         students: { select: { studentId: true } },
         teacher: { select: { firstName: true, lastName: true } },
       },
-    });
+         });
     if (!lesson) throw new NotFoundException('Το μάθημα δεν βρέθηκε');
     if (lesson.status === 'CANCELLED') {
       throw new ConflictException('Δεν μπορεί να μεταφερθεί ακυρωμένο μάθημα');
@@ -521,7 +705,7 @@ export class SchedulingService {
       roomId,
       studentIds,
       excludeLessonId: id,
-    });
+         });
     if (conflicts.length) this.throwConflicts(conflicts);
 
     try {
@@ -536,7 +720,7 @@ export class SchedulingService {
           originalStartsAt: lesson.originalStartsAt ?? lesson.startsAt,
           cancellationReason: null,
         },
-      });
+     });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new ConflictException('Υπάρχει ήδη μάθημα αυτής της σειράς σε αυτή την ώρα');
@@ -554,14 +738,14 @@ export class SchedulingService {
       from: lesson.startsAt.toISOString(),
       to: startsAt.toISOString(),
       reason: dto.reason,
-    });
+         });
     return this.getLesson(id);
   }
 
   async cancelLesson(id: string, dto: CancelLessonDto) {
     const lesson = await this.prisma.lesson.findFirst({
       where: { id, tenantId: this.ctx.tenantId },
-    });
+         });
     if (!lesson) throw new NotFoundException('Το μάθημα δεν βρέθηκε');
     if (lesson.status === 'CANCELLED') {
       throw new ConflictException('Το μάθημα είναι ήδη ακυρωμένο');
@@ -570,14 +754,14 @@ export class SchedulingService {
     await this.prisma.lesson.update({
       where: { id },
       data: { status: 'CANCELLED', cancellationReason: dto.reason },
-    });
+         });
     await this.notifications.notifyLessonParticipants(
       id,
       'LESSON_CANCELLED',
       'Ακύρωση μαθήματος',
       `Το μάθημα «${lesson.title}» στις ${formatSlot(lesson.startsAt)} ακυρώθηκε. ${dto.reason}`,
     );
-    await this.audit.record('lesson.cancelled', 'Lesson', id, { reason: dto.reason });
+    await this.audit.record('lesson.cancelled', 'Lesson', id, { reason: dto.reason});
     return this.getLesson(id);
   }
 
@@ -589,11 +773,11 @@ export class SchedulingService {
     }
     const teacher = await this.prisma.teacher.findFirst({
       where: { id: dto.teacherId, tenantId: this.ctx.tenantId },
-    });
+         });
     if (!teacher) throw new NotFoundException('Ο καθηγητής δεν βρέθηκε');
     const room = await this.prisma.room.findFirst({
       where: { id: dto.roomId, tenantId: this.ctx.tenantId },
-    });
+         });
     if (!room) throw new NotFoundException('Η αίθουσα δεν βρέθηκε');
 
     const conflicts = await this.findConflicts([{ startsAt, endsAt }], {
@@ -602,7 +786,7 @@ export class SchedulingService {
       studentIds: dto.studentIds,
       excludeLessonId: dto.excludeLessonId,
       excludeSeriesId: dto.excludeSeriesId,
-    });
+         });
     return {
       hasConflicts: conflicts.length > 0,
       conflicts: conflicts.map((conflict) => ({
@@ -614,7 +798,14 @@ export class SchedulingService {
 
   private async materialize(
     tx: Prisma.TransactionClient,
-    series: { id: string; branchId: string; roomId: string; teacherId: string; title: string; type: string },
+    series: {
+      id: string;
+      branchId: string;
+      roomId: string;
+      teacherId: string;
+      title: string;
+      type: string;
+    },
     occurrences: Occurrence[],
     studentIds: string[],
   ): Promise<void> {
@@ -633,7 +824,7 @@ export class SchedulingService {
         status: occurrence.endsAt < new Date() ? 'COMPLETED' : 'SCHEDULED',
       })),
       skipDuplicates: true,
-    });
+         });
 
     const lessons = await tx.lesson.findMany({
       where: {
@@ -641,7 +832,7 @@ export class SchedulingService {
         startsAt: { in: occurrences.map((occurrence) => occurrence.startsAt) },
       },
       select: { id: true },
-    });
+         });
     if (lessons.length && studentIds.length) {
       await tx.lessonStudent.createMany({
         data: lessons.flatMap((lesson) =>
@@ -652,11 +843,16 @@ export class SchedulingService {
           })),
         ),
         skipDuplicates: true,
-      });
+     });
     }
   }
 
-  private buildOccurrences(
+  /**
+   * Builds the weekly occurrences, skipping days that the tenant calendar marks
+   * as holidays or closures for this branch. Exposed for callers that need the
+   * dates before committing (e.g. change previews).
+   */
+  private async buildOccurrences(
     config: {
       validFrom: string;
       validTo: string;
@@ -665,24 +861,49 @@ export class SchedulingService {
       durationMinutes: number;
     },
     from: string,
-  ): Occurrence[] {
-    const start = from > config.validFrom ? from : config.validFrom;
-    const occurrences: Occurrence[] = [];
-    let cursor = start;
-    while (cursor <= config.validTo) {
-      if (isoWeekday(cursor) === config.weekday) {
-        const startsAt = athensDateTime(cursor, config.startTime);
-        occurrences.push({
-          startsAt,
-          endsAt: new Date(startsAt.getTime() + config.durationMinutes * 60_000),
-        });
-        if (occurrences.length > MAX_LESSONS_PER_SERIES) {
-          throw new BadRequestException('Το διάστημα παράγει υπερβολικά πολλά μαθήματα');
-        }
+    branchId: string,
+  ): Promise<Occurrence[]> {
+    const holidays = await this.loadCalendarDays(config.validFrom, config.validTo, branchId);
+    try {
+      return buildRecurrence(config, {
+        from,
+        timeZone: TZ,
+        holidays,
+        branchId,
+        maxOccurrences: MAX_LESSONS_PER_SERIES,
+     });
+    } catch (error) {
+      if (error instanceof RangeError) {
+        throw new BadRequestException('Το διάστημα παράγει υπερβολικά πολλά μαθήματα');
       }
-      cursor = addDays(cursor, 1);
+      throw error;
     }
-    return occurrences;
+  }
+
+  /**
+   * Loads the calendar rules that apply to a date range: tenant-wide rules plus
+   * anything scoped to the branch (or to any branch when `branchId` is absent).
+   */
+  private async loadCalendarDays(
+    from: string,
+    to: string,
+    branchId?: string,
+  ): Promise<Map<string, CalendarDayRule[]>> {
+    const rows = await this.prisma.calendarDay.findMany({
+      where: {
+        tenantId: this.ctx.tenantId,
+        date: { gte: new Date(`${from}T00:00:00.000Z`), lte: new Date(`${to}T00:00:00.000Z`) },
+        ...(branchId ? { OR: [{ branchId: null }, { branchId }] } : {}),
+      },
+      select: { date: true, kind: true, branchId: true },
+         });
+    return groupRules(
+      rows.map((row) => ({
+        date: isoDate(row.date),
+        kind: row.kind,
+        branchId: row.branchId,
+      })),
+    );
   }
 
   private async resolveRange(
@@ -695,7 +916,7 @@ export class SchedulingService {
       const year = await this.prisma.academicYear.findFirst({
         where: { tenantId: this.ctx.tenantId, isActive: true },
         orderBy: { startsOn: 'desc' },
-      });
+     });
       validTo = year ? isoDate(year.endsOn) : addDays(validFrom, 300);
     }
     if (validTo < validFrom) {
@@ -766,14 +987,14 @@ export class SchedulingService {
     const studentIds = options.studentIds ?? [];
 
     const or: Prisma.LessonWhereInput[] = [{ teacherId: options.teacherId }];
-    if (options.roomId) or.push({ roomId: options.roomId });
+    if (options.roomId) or.push({ roomId: options.roomId});
     if (studentIds.length) {
-      or.push({ students: { some: { studentId: { in: studentIds } } } });
+      or.push({ students: { some: { studentId: { in: studentIds } } }});
     }
 
     const notFilters: Prisma.LessonWhereInput[] = [];
-    if (options.excludeLessonId) notFilters.push({ id: options.excludeLessonId });
-    if (options.excludeSeriesId) notFilters.push({ lessonSeriesId: options.excludeSeriesId });
+    if (options.excludeLessonId) notFilters.push({ id: options.excludeLessonId});
+    if (options.excludeSeriesId) notFilters.push({ lessonSeriesId: options.excludeSeriesId});
 
     const existing = await this.prisma.lesson.findMany({
       where: {
@@ -789,7 +1010,7 @@ export class SchedulingService {
         room: { select: { name: true } },
         students: { select: { studentId: true } },
       },
-    });
+         });
 
     const conflicts: Conflict[] = [];
     const seen = new Set<string>();
@@ -818,7 +1039,7 @@ export class SchedulingService {
             conflicts.push({
               startsAt: occurrence.startsAt,
               reason: `${formatSlot(occurrence.startsAt)}: ${reasons.join(', ')}`,
-            });
+           });
           }
         }
       }

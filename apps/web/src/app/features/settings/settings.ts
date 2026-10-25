@@ -22,9 +22,11 @@ import { LanguageService } from '../../core/language.service';
 import type { TenantInfo } from '../../core/models';
 import { ThemeService } from '../../core/theme.service';
 import { ToastService } from '../../core/toast.service';
+import { DeletedItemsComponent } from './deleted-items';
+import { SchoolCalendarComponent } from './school-calendar';
 import { SHARED_IMPORTS } from '../../shared/shared.imports';
 
-type TabId = 'profile' | 'security' | 'preferences' | 'tenant';
+type TabId = 'profile' | 'security' | 'preferences' | 'tenant' | 'calendar' | 'deleted';
 
 function passwordsMatch(control: AbstractControl): ValidationErrors | null {
   const newPassword = control.get('newPassword')?.value;
@@ -34,7 +36,7 @@ function passwordsMatch(control: AbstractControl): ValidationErrors | null {
 
 @Component({
   selector: 'app-settings',
-  imports: [SHARED_IMPORTS, ReactiveFormsModule],
+  imports: [SHARED_IMPORTS, ReactiveFormsModule, DeletedItemsComponent, SchoolCalendarComponent],
   template: `
     <div class="page">
       <app-page-header title="settings.title" subtitle="settings.subtitle" eyebrow="nav.settings" />
@@ -407,6 +409,16 @@ function passwordsMatch(control: AbstractControl): ValidationErrors | null {
             </div>
           }
         }
+        @case ('calendar') {
+          @if (tenant(); as info) {
+            <app-school-calendar [branches]="info.branches" />
+          } @else {
+            <div class="skeleton h-72 rounded-2xl"></div>
+          }
+        }
+        @case ('deleted') {
+          <app-deleted-items />
+        }
       }
 
       <section class="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-surface-2/60 px-5 py-4">
@@ -439,6 +451,8 @@ export class SettingsPage {
     { id: 'security', label: 'settings.tabs.security', icon: 'lock' },
     { id: 'preferences', label: 'settings.tabs.preferences', icon: 'sun' },
     { id: 'tenant', label: 'settings.tabs.tenant', icon: 'building' },
+    { id: 'calendar', label: 'settings.tabs.calendar', icon: 'calendar' },
+    { id: 'deleted', label: 'settings.tabs.deleted', icon: 'trash' },
   ];
 
   readonly tab = signal<TabId>('profile');

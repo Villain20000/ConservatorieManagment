@@ -118,6 +118,49 @@ enum ExamOutcome {
   FAIL
 }
 
+enum AssignmentStatus {
+  ACTIVE
+  CLOSED
+  CANCELLED
+}
+
+enum SubmissionStatus {
+  SUBMITTED
+  GRADED
+  RETURNED
+}
+
+enum LeadStage {
+  NEW
+  CONTACTED
+  TRIAL_BOOKED
+  TRIAL_COMPLETED
+  OFFER_SENT
+  ENROLLED
+  LOST
+}
+
+enum LeadSource {
+  WEB_FORM
+  PHONE
+  WALK_IN
+  REFERRAL
+  CAMPAIGN
+  SOCIAL
+  OTHER
+}
+
+enum LeadActivityType {
+  NOTE
+  CALL
+  EMAIL
+  MEETING
+  STAGE_CHANGE
+  TRIAL_SCHEDULED
+  FOLLOW_UP
+  CONVERSION
+}
+
 enum DocumentType {
   REGISTRATION_FORM
   ATTENDANCE_CERTIFICATE
@@ -147,6 +190,12 @@ enum NotificationType {
   EXAM_APPLICATION_DECIDED
   EXAM_PUBLISHED
   EXAM_RESULT_READY
+  ASSIGNMENT_CREATED
+  ASSIGNMENT_SUBMITTED
+  ASSIGNMENT_GRADED
+  CRM_LEAD_ASSIGNED
+  CRM_FOLLOW_UP_DUE
+  CRM_CONVERTED
 }
 
 enum NumberScope {
@@ -217,6 +266,65 @@ enum OutboxStatus {
   FAILED
 }
 
+/// How a calendar day is treated when weekly series are materialised.
+/// HOLIDAY/CLOSED days are skipped; make-up lessons may be placed on MAKEUP_DAY.
+enum CalendarDayKind {
+  HOLIDAY
+  CLOSED
+  MAKEUP_DAY
+}
+
+enum SubscriptionInvoiceStatus {
+  DRAFT
+  OPEN
+  PAID
+  VOID
+  UNCOLLECTIBLE
+}
+
+enum SubscriptionPaymentStatus {
+  SUCCEED
+  FAILED
+  PENDING
+}
+
+/// Explicit, time-limited platform support access. There is deliberately no
+/// silent impersonation: a grant names the tenant, the reason, the window and
+/// is revoked on use or expiry.
+enum SupportAccessStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+}
+
+enum ConsentPurpose {
+  DATA_PROCESSING
+  MEDIA_PUBLICATION
+  RECORDINGS
+  PHOTOGRAPHY
+  MARKETING
+  THIRD_PARTY_SHARING
+}
+
+enum ConsentAction {
+  GRANTED
+  WITHDRAWN
+}
+
+enum DsarRequestType {
+  ACCESS
+  PORTABILITY
+  ERASURE
+  RECTIFICATION
+}
+
+enum DsarRequestStatus {
+  RECEIVED
+  IN_PROGRESS
+  COMPLETED
+  REJECTED
+}
+
 // ───────────────────────────── Platform ─────────────────────────────
 
 model Plan {
@@ -245,6 +353,8 @@ model Tenant {
   locale    String       @default("el")
   status    TenantStatus @default(TRIAL)
   logoUrl   String?
+  suspendedAt      DateTime?
+  suspensionReason String?
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
@@ -283,6 +393,16 @@ model Tenant {
   documents      DocumentRecord[]
   outboxMessages OutboxMessage[]
   auditLogs      AuditLog[]
+  calendarDays   CalendarDay[]
+  supportGrants  SupportAccessGrant[]
+  consentEvents  ConsentEvent[]
+  dsarRequests   DsarRequest[]
+  idempotencyKeys IdempotencyKey[]
+  assignments     Assignment[]
+  assignmentTargets AssignmentTarget[]
+  assignmentSubmissions AssignmentSubmission[]
+  leads           Lead[]
+  leadActivities  LeadActivity[]
 
   @@map("tenants")
 }
@@ -299,17 +419,156 @@ model Subscription {
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   plan   Plan   @relation(fields: [planId], references: [id])
+  invoices SubscriptionInvoice[]
 
   @@map("subscriptions")
 }
 
-model FeatureFlag {
-  id          String  @id @default(uuid(7)) @db.Uuid
-  key         String  @unique
-  description String?
-  enabled     Boolean @default(false)
+/// SaaS-provider revenue record. Kept strictly separate from conservatory
+/// tuition ledgers (section 9B): it belongs to MusicOS, not to the tenant.
+model SubscriptionInvoice {
+  id             String                    @id @default(uuid(7)) @db.Uuid
+  subscriptionId String                    @db.Uuid
+  /// Provider-agnostic external key, unique so that replays are harmless.
+  externalId     String                    @unique
+  number         String
+  periodStart    DateTime
+  periodEnd      DateTime
+  subtotalCents  Int
+  taxCents       Int                       @default(0)
+  totalCents     Int
+  currency       String                    @default("EUR")
+  status         SubscriptionInvoiceStatus @default(OPEN)
+  dueAt          DateTime?
+  paidAt         DateTime?
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+  subscription Subscription            @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  payments     SubscriptionPayment[]
 
-  @@map("feature_flags")
+  @@unique([subscriptionId, number])
+  @@index([status, dueAt])
+  @@map("subscription_invoices")
+}
+
+model SubscriptionPayment {
+  id          String                    @id @default(uuid(7)) @db.Uuid
+  invoiceId   String                    @db.Uuid
+  externalId  String                    @unique
+  amountCents Int
+  currency    String                    @default("EUR")
+  status      SubscriptionPaymentStatus @default(SUCCEED)
+  method      String?
+  failureCode String?
+  attemptedAt DateTime                  @default(now())
+
+  invoice SubscriptionInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId, attemptedAt])
+  @@map("subscription_payments")
+}
+
+/// A dated exception to the weekly timetable, per tenant: public holidays,
+/// closures, or days on which make-up lessons are allowed.
+model CalendarDay {
+  id        String          @id @default(uuid(7)) @db.Uuid
+  tenantId  String          @db.Uuid
+  branchId  String?         @db.Uuid
+  date      DateTime        @db.Date
+  kind      CalendarDayKind
+  name      String
+  createdAt DateTime        @default(now())
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch Branch? @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, branchId, date, kind], map: "calendar_days_tenantId_branchId_date_kind_key")
+  @@index([tenantId, date])
+  @@map("calendar_days")
+}
+
+// The live index `calendar_days_tenantId_branchId_date_kind_key` is declared
+// with NULLS NOT DISTINCT so two tenant-wide rules (branchId IS NULL) collide.
+// Prisma has no attribute for that modifier; the index is created in migration
+// 20261025100000 and must not be regenerated by `migrate diff`.
+
+model SupportAccessGrant {
+  id          String              @id @default(uuid(7)) @db.Uuid
+  tenantId    String              @db.Uuid
+  actorId     String              @db.Uuid
+  reason      String
+  ticketRef   String?
+  status      SupportAccessStatus @default(ACTIVE)
+  expiresAt   DateTime
+  usedAt      DateTime?
+  revokedAt   DateTime?
+  revokedById String?             @db.Uuid
+  createdAt   DateTime            @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  actor  User   @relation("SupportGrantActor", fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status, expiresAt])
+  @@map("support_access_grants")
+}
+
+/// Append-only consent ledger. The booleans on Student are a projection of the
+/// latest event, which is what a supervisory authority expects to be able to trace.
+model ConsentEvent {
+  id           String         @id @default(uuid(7)) @db.Uuid
+  tenantId     String         @db.Uuid
+  studentId    String         @db.Uuid
+  purpose      ConsentPurpose
+  action       ConsentAction
+  recordedById String?        @db.Uuid
+  legalBasis   String?
+  evidence     String?
+  recordedAt   DateTime       @default(now())
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, studentId, purpose, recordedAt])
+  @@map("consent_events")
+}
+
+model DsarRequest {
+  id          String            @id @default(uuid(7)) @db.Uuid
+  tenantId    String            @db.Uuid
+  studentId   String?           @db.Uuid
+  type        DsarRequestType
+  status      DsarRequestStatus @default(RECEIVED)
+  requestedBy String
+  notes       String?
+  completedAt DateTime?
+  dueAt       DateTime
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student Student? @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status, dueAt])
+  @@map("dsar_requests")
+}
+
+/// Recorded before a side-effecting command runs. A repeated key returns the
+/// stored response instead of re-applying the effect (section 11).
+model IdempotencyKey {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  tenantId    String?  @db.Uuid
+  userId      String?  @db.Uuid
+  scope       String
+  key         String
+  requestHash String
+  statusCode  Int?
+  response    Json?
+  createdAt   DateTime @default(now())
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, scope, key])
+  @@index([createdAt])
+  @@map("idempotency_keys")
 }
 
 model AuditLog {
@@ -341,11 +600,18 @@ model User {
   isPlatformAdmin Boolean    @default(false)
   status          UserStatus @default(ACTIVE)
   lastLoginAt     DateTime?
+  mfaSecret       String?
+  mfaEnabledAt    DateTime?
+  mfaLastUsedStep Int?
+  mfaFailedAttempts Int      @default(0)
+  mfaLockedUntil  DateTime?
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
   memberships     Membership[]
   refreshTokens   RefreshToken[]
+  passwordResetTokens PasswordResetToken[]
+  mfaRecoveryCodes MfaRecoveryCode[]
   teacherProfiles Teacher[]
   studentProfiles Student[]
   guardianProfiles Guardian[]
@@ -366,6 +632,11 @@ model User {
   documentsApproved DocumentRecord[] @relation("DocumentApprovedBy")
   examApplicationsDecided ExamApplication[] @relation("ApplicationDecidedBy")
   scholarshipsApproved Scholarship[] @relation("ScholarshipApprovedBy")
+  supportGrants   SupportAccessGrant[] @relation("SupportGrantActor")
+  assignmentsCreated Assignment[] @relation("AssignmentCreatedBy")
+  submissionsGraded AssignmentSubmission[] @relation("SubmissionGradedBy")
+  leadsAssigned   Lead[]           @relation("LeadAssignedTo")
+  leadActivities  LeadActivity[]   @relation("LeadActivityActor")
 
   @@map("users")
 }
@@ -404,6 +675,37 @@ model RefreshToken {
   @@map("refresh_tokens")
 }
 
+/// Single-use password recovery token. Only the SHA-256 hash is stored, so a
+/// database leak does not yield usable reset links.
+model PasswordResetToken {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  userId      String    @db.Uuid
+  tokenHash   String    @unique
+  expiresAt   DateTime
+  usedAt      DateTime?
+  requestedIp String?
+  createdAt   DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("password_reset_tokens")
+}
+
+/// One-time MFA recovery codes. Hashed at rest for the same reason as reset tokens.
+model MfaRecoveryCode {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @db.Uuid
+  codeHash  String    @unique
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, usedAt])
+  @@map("mfa_recovery_codes")
+}
+
 // ───────────────────────────── Academics ─────────────────────────────
 
 model Branch {
@@ -426,8 +728,11 @@ model Branch {
   lessons       Lesson[]
   memberships   Membership[]
   announcements Announcement[]
+  calendarDays  CalendarDay[]
+  leads         Lead[]
 
   @@unique([tenantId, code])
+  @@unique([tenantId, id])
   @@index([tenantId])
   @@map("branches")
 }
@@ -466,8 +771,12 @@ model Program {
   enrollments Enrollment[]
   lessonSeries LessonSeries[]
   exams       Exam[]
+  assignments Assignment[]
+  leads       Lead[]
+
 
   @@unique([tenantId, code])
+  @@unique([tenantId, id])
   @@index([tenantId])
   @@map("programs")
 }
@@ -507,6 +816,7 @@ model Room {
   lessons      Lesson[]
 
   @@unique([tenantId, branchId, name])
+  @@unique([tenantId, id])
   @@index([tenantId])
   @@map("rooms")
 }
@@ -526,6 +836,8 @@ model Teacher {
   specialties String[]     @default([])
   bio        String?
   status     TeacherStatus @default(ACTIVE)
+  deletedAt  DateTime?
+  deletedById String?      @db.Uuid
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt
 
@@ -535,9 +847,12 @@ model Teacher {
   lessons     Lesson[]
   enrollments Enrollment[]
   examCommittee ExamCommitteeMember[]
+  assignments Assignment[]
 
   @@unique([tenantId, userId])
+  @@unique([tenantId, id])
   @@index([tenantId, lastName])
+  @@index([tenantId, deletedAt])
   @@map("teachers")
 }
 
@@ -560,6 +875,8 @@ model Student {
   enrolledAt         DateTime      @default(now())
   consentData        Boolean       @default(false)
   consentMedia       Boolean       @default(false)
+  deletedAt          DateTime?
+  deletedById        String?       @db.Uuid
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
@@ -578,10 +895,17 @@ model Student {
   examApplications ExamApplication[]
   examResults     ExamResult[]
   documents       DocumentRecord[]
+  consentEvents   ConsentEvent[]
+  dsarRequests    DsarRequest[]
+  assignmentTargets AssignmentTarget[]
+  assignmentSubmissions AssignmentSubmission[]
+  convertedFromLead Lead[] @relation("LeadConvertedStudent")
 
   @@unique([tenantId, registrationNumber])
+  @@unique([tenantId, id])
   @@unique([tenantId, userId])
   @@index([tenantId, lastName])
+  @@index([tenantId, deletedAt])
   @@map("students")
 }
 
@@ -675,6 +999,8 @@ model LessonSeries {
   validFrom       DateTime     @db.Date
   validTo         DateTime?    @db.Date
   status          SeriesStatus @default(ACTIVE)
+  deletedAt       DateTime?
+  deletedById     String?      @db.Uuid
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 
@@ -686,9 +1012,12 @@ model LessonSeries {
   level    Level?               @relation(fields: [levelId], references: [id], onDelete: SetNull)
   students LessonSeriesStudent[]
   lessons  Lesson[]
+  assignments Assignment[]
 
   @@index([tenantId, weekday])
   @@index([tenantId, teacherId])
+  @@index([tenantId, deletedAt])
+  @@unique([tenantId, id])
   @@map("lesson_series")
 }
 
@@ -710,8 +1039,8 @@ model LessonSeriesStudent {
 model Lesson {
   id                 String       @id @default(uuid(7)) @db.Uuid
   tenantId           String       @db.Uuid
-  lessonSeriesId     String?      @db.Uuid
   branchId           String       @db.Uuid
+  lessonSeriesId     String?      @db.Uuid
   roomId             String?      @db.Uuid
   teacherId          String       @db.Uuid
   title              String
@@ -724,16 +1053,17 @@ model Lesson {
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
 
-  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  lessonSeries LessonSeries?     @relation(fields: [lessonSeriesId], references: [id], onDelete: SetNull)
-  branch       Branch            @relation(fields: [branchId], references: [id])
-  room         Room?             @relation(fields: [roomId], references: [id], onDelete: SetNull)
-  teacher      Teacher           @relation(fields: [teacherId], references: [id])
+  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  lessonSeries LessonSeries?     @relation(fields: [tenantId, lessonSeriesId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
+  branch       Branch            @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
+  room         Room?             @relation(fields: [tenantId, roomId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
+  teacher      Teacher           @relation(fields: [tenantId, teacherId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
   students     LessonStudent[]
   attendances  Attendance[]
   notes        LessonNote[]
 
   @@unique([lessonSeriesId, startsAt])
+  @@unique([tenantId, id])
   @@index([tenantId, startsAt])
   @@index([tenantId, teacherId, startsAt])
   @@map("lessons")
@@ -746,8 +1076,8 @@ model LessonStudent {
   studentId String @db.Uuid
 
   tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  lesson  Lesson  @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  lesson  Lesson  @relation(fields: [tenantId, lessonId], references: [tenantId, id], onDelete: Cascade)
+  student Student @relation(fields: [tenantId, studentId], references: [tenantId, id], onDelete: Cascade)
 
   @@unique([lessonId, studentId])
   @@index([tenantId])
@@ -806,6 +1136,8 @@ model Announcement {
   body          String
   isPinned      Boolean          @default(false)
   publishedAt   DateTime         @default(now())
+  deletedAt     DateTime?
+  deletedById   String?          @db.Uuid
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
 
@@ -814,6 +1146,7 @@ model Announcement {
   branch Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, publishedAt])
+  @@index([tenantId, deletedAt])
   @@map("announcements")
 }
 
@@ -878,6 +1211,7 @@ model Charge {
   allocations PaymentAllocation[]
 
   @@unique([tenantId, sourceKey])
+  @@unique([tenantId, id])
   @@index([tenantId, studentId])
   @@index([tenantId, status])
   @@map("charges")
@@ -1001,6 +1335,8 @@ model DocumentRecord {
   signatureStatus SignatureStatus @default(NONE)
   status          DocumentStatus @default(DRAFT)
   notes           String?
+  deletedAt       DateTime?
+  deletedById     String?        @db.Uuid
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
@@ -1015,6 +1351,7 @@ model DocumentRecord {
   @@unique([tenantId, protocolNumber])
   @@index([tenantId, studentId])
   @@index([tenantId, status])
+  @@index([tenantId, deletedAt])
   @@map("document_records")
 }
 
@@ -1180,6 +1517,144 @@ model ExamApplication {
   @@index([tenantId, studentId])
   @@index([tenantId, status])
   @@map("exam_applications")
+}
+
+// ───────────────────────────── Learning ─────────────────────────────
+// Assignments are per-student via AssignmentTarget; the submission row is
+// created lazily on first submit, so `@@unique([assignmentId, studentId])`
+// doubles as the "one submission per student" rule.
+
+model Assignment {
+  id             String           @id @default(uuid(7)) @db.Uuid
+  tenantId       String           @db.Uuid
+  createdById    String           @db.Uuid
+  teacherId      String?          @db.Uuid
+  programId      String?          @db.Uuid
+  lessonSeriesId String?          @db.Uuid
+  title          String
+  description    String?
+  assignedOn     DateTime         @db.Date
+  dueAt          DateTime?        @db.Timestamptz(3)
+  status         AssignmentStatus @default(ACTIVE)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy   User             @relation("AssignmentCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  teacher     Teacher?         @relation(fields: [tenantId, teacherId], references: [tenantId, id], onDelete: SetNull, onUpdate: NoAction)
+  program     Program?         @relation(fields: [tenantId, programId], references: [tenantId, id], onDelete: SetNull, onUpdate: NoAction)
+  lessonSeries LessonSeries?   @relation(fields: [tenantId, lessonSeriesId], references: [tenantId, id], onDelete: SetNull, onUpdate: NoAction)
+  targets     AssignmentTarget[]
+  submissions AssignmentSubmission[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, assignedOn])
+  @@unique([tenantId, id])
+  @@map("assignments")
+}
+
+model AssignmentTarget {
+  id           String @id @default(uuid(7)) @db.Uuid
+  tenantId     String @db.Uuid
+  assignmentId String @db.Uuid
+  studentId    String @db.Uuid
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assignment Assignment @relation(fields: [tenantId, assignmentId], references: [tenantId, id], onDelete: Cascade, onUpdate: NoAction)
+  student    Student    @relation(fields: [tenantId, studentId], references: [tenantId, id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([assignmentId, studentId])
+  @@index([tenantId, studentId])
+  @@map("assignment_targets")
+}
+
+model AssignmentSubmission {
+  id           String           @id @default(uuid(7)) @db.Uuid
+  tenantId     String           @db.Uuid
+  assignmentId String           @db.Uuid
+  studentId    String           @db.Uuid
+  status       SubmissionStatus @default(SUBMITTED)
+  content      String?
+  submittedAt  DateTime?
+  grade        Int?
+  feedback     String?
+  gradedById   String?          @db.Uuid
+  gradedAt     DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assignment Assignment @relation(fields: [tenantId, assignmentId], references: [tenantId, id], onDelete: Cascade, onUpdate: NoAction)
+  student    Student    @relation(fields: [tenantId, studentId], references: [tenantId, id], onDelete: Cascade, onUpdate: NoAction)
+  gradedBy   User?      @relation("SubmissionGradedBy", fields: [gradedById], references: [id], onDelete: SetNull)
+
+  @@unique([assignmentId, studentId])
+  @@index([tenantId, studentId])
+  @@map("assignment_submissions")
+}
+
+// ───────────────────────────── Admissions CRM ─────────────────────────────
+// A lead is the prospective student (child) plus the family contact. Conversion
+// creates a real Student (+ optional Enrollment) and keeps the lead row for
+// historical analytics, so no admission history is ever destroyed.
+
+model Lead {
+  id             String      @id @default(uuid(7)) @db.Uuid
+  tenantId       String      @db.Uuid
+  branchId       String      @db.Uuid
+  studentFirstName String
+  studentLastName  String
+  birthDate      DateTime?   @db.Date
+  contactName    String
+  contactEmail   String?
+  contactPhone   String?
+  relationship   String?
+  source         LeadSource  @default(WEB_FORM)
+  stage          LeadStage   @default(NEW)
+  programId      String?     @db.Uuid
+  notes          String?
+  assignedToId   String?     @db.Uuid
+  nextFollowUpAt DateTime?   @db.Timestamptz(3)
+  lostReason     String?
+  consentAt      DateTime?
+  convertedStudentId String? @db.Uuid
+  convertedAt    DateTime?
+  deletedAt      DateTime?
+  deletedById    String?     @db.Uuid
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch      Branch         @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
+  program     Program?       @relation(fields: [tenantId, programId], references: [tenantId, id], onDelete: SetNull, onUpdate: NoAction)
+  assignedTo  User?          @relation("LeadAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  convertedStudent Student?  @relation("LeadConvertedStudent", fields: [convertedStudentId], references: [id], onDelete: SetNull)
+  activities  LeadActivity[]
+
+  @@index([tenantId, stage])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, nextFollowUpAt])
+  @@index([tenantId, deletedAt])
+  @@unique([tenantId, id])
+  @@map("leads")
+}
+
+model LeadActivity {
+  id        String           @id @default(uuid(7)) @db.Uuid
+  tenantId  String           @db.Uuid
+  leadId    String           @db.Uuid
+  actorId   String?          @db.Uuid
+  type      LeadActivityType
+  fromStage LeadStage?
+  toStage   LeadStage?
+  body      String?
+  createdAt DateTime         @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lead   Lead   @relation(fields: [tenantId, leadId], references: [tenantId, id], onDelete: Cascade, onUpdate: NoAction)
+  actor  User?  @relation("LeadActivityActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, leadId, createdAt])
+  @@map("lead_activities")
 }
 
 model OutboxMessage {

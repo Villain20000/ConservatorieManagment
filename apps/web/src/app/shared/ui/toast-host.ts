@@ -1,10 +1,11 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { TranslocoPipe } from '@jsverse/transloco';
 import { Toast, ToastService } from '../../core/toast.service';
 import { IconComponent } from './icon';
 
 @Component({
   selector: 'app-toast-host',
-  imports: [IconComponent],
+  imports: [IconComponent, TranslocoPipe],
   template: `
     <div
       class="pointer-events-none fixed bottom-5 right-4 z-[120] flex w-[calc(100%-2rem)] max-w-sm flex-col gap-2 sm:right-6"
@@ -25,12 +26,21 @@ import { IconComponent } from './icon';
               <p class="text-[12.5px] font-semibold text-ink">{{ toast.title }}</p>
             }
             <p class="text-[12.5px] leading-relaxed text-ink-2">{{ toast.message }}</p>
+            @if (toast.action; as action) {
+              <button
+                type="button"
+                class="btn btn-ghost btn-sm mt-1.5 -ml-2 font-semibold text-accent-strong"
+                (click)="runAction(toast)"
+              >
+                {{ action.labelKey | transloco }}
+              </button>
+            }
           </div>
           <button
             type="button"
             class="-mr-1 -mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-ink-3 hover:bg-surface-3 hover:text-ink"
             (click)="dismiss(toast)"
-            aria-label="Κλείσιμο"
+            [attr.aria-label]="'common.close' | transloco"
           >
             <app-icon name="x" [size]="14" />
           </button>
@@ -46,6 +56,10 @@ export class ToastHostComponent {
 
   dismiss(toast: Toast): void {
     this.service.dismiss(toast.id);
+  }
+
+  runAction(toast: Toast): void {
+    void this.service.runAction(toast);
   }
 
   borderFor(toast: Toast): string {

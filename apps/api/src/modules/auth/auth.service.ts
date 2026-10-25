@@ -1,4 +1,9 @@
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
@@ -44,6 +49,15 @@ export interface SessionResult {
   requiresTenantSelection: boolean;
 }
 
+/** Password verified, second factor still pending. Carries no session. */
+export interface MfaChallengeResult {
+  mfaRequired: true;
+  challengeToken: string;
+  expiresAt: string;
+}
+
+export type LoginResult = (SessionResult & { mfaRequired: false }) | MfaChallengeResult;
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -54,7 +68,7 @@ export class AuthService {
     private readonly config: ConfigService,
   ) {}
 
-  async login(dto: LoginDto, response: Response, userAgent?: string): Promise<SessionResult> {
+  async login(dto: LoginDto, response: Response, userAgent?: string): Promise<LoginResult> {
     const email = dto.email.trim().toLowerCase();
     const user = await this.prisma.user.findUnique({
       where: { email },
@@ -76,14 +90,38 @@ export class AuthService {
       throw new UnauthorizedException('Λανθασμένα στοιχεία σύνδεσης');
     }
 
-    const memberships = user.memberships.map((membership) => this.toSummary(membership));
+    const allMemberships = user.memberships.map((membership) => this.toSummary(membership));
+    // A suspended conservatory must not be reachable, even by a user whose
+    // membership row is still active.
+    const memberships = allMemberships.filter(
+      (membership) => membership.tenant.status !== 'SUSPENDED',
+    );
 
     if (memberships.length === 0 && !user.isPlatformAdmin) {
+      if (allMemberships.length > 0) {
+        throw new ForbiddenException({
+          code: 'TENANT_SUSPENDED',
+          message: 'Η πρόσβαση στο ωδείο έχει ανασταλεί',
+        });
+      }
       throw new UnauthorizedException('Ο λογαριασμός δεν έχει πρόσβαση σε ενεργό ωδείο');
     }
 
     const activeMembership = memberships[0] ?? null;
-    const accessToken = this.signAccessToken(user, activeMembership);
+
+    // Second factor: stop here and hand back a challenge. No access token, no
+    // refresh cookie — the session only exists after the code is verified.
+    if (user.mfaEnabledAt) {
+      const challenge = this.signMfaChallenge(user.id);
+      return {
+        mfaRequired: true,
+        challengeToken: challenge.token,
+        expiresAt: challenge.expiresAt,
+      };
+    }
+
+    const mfaPending = this.shouldForceEnrolment(user.isPlatformAdmin, activeMembership);
+    const accessToken = this.signAccessToken(user, activeMembership, mfaPending);
     const permissions = activeMembership
       ? [...(ROLE_PERMISSIONS[activeMembership.role] ?? [])]
       : [...PLATFORM_PERMISSIONS];
@@ -95,6 +133,7 @@ export class AuthService {
     await this.createSession(user.id, response, userAgent);
 
     return {
+      mfaRequired: false,
       accessToken,
       user: this.toPublicUser(user),
       memberships,
@@ -149,7 +188,9 @@ export class AuthService {
       throw new UnauthorizedException('Η συνεδρία έληξε');
     }
 
-    const memberships = stored.user.memberships.map((membership) => this.toSummary(membership));
+    const memberships = stored.user.memberships
+      .map((membership) => this.toSummary(membership))
+      .filter((membership) => membership.tenant.status !== 'SUSPENDED');
     let activeMembership: MembershipSummary | null = null;
 
     if (dto.tenantId) {
@@ -162,10 +203,22 @@ export class AuthService {
     }
 
     if (!activeMembership && !stored.user.isPlatformAdmin) {
+      if (stored.user.memberships.length > 0) {
+        // Every membership belongs to a suspended conservatory. Without this the
+        // holder of a stale refresh cookie could mint access tokens forever.
+        throw new ForbiddenException({
+          code: 'TENANT_SUSPENDED',
+          message: 'Η πρόσβαση στο ωδείο έχει ανασταλεί',
+        });
+      }
       throw new UnauthorizedException('Ο λογαριασμός δεν έχει πρόσβαση σε ενεργό ωδείο');
     }
 
-    const accessToken = this.signAccessToken(stored.user, activeMembership);
+    const accessToken = this.signAccessToken(
+      stored.user,
+      activeMembership,
+      this.shouldForceEnrolment(stored.user.isPlatformAdmin, activeMembership),
+    );
     await this.prisma.refreshToken.update({
       where: { id: stored.id },
       data: { revokedAt: new Date() },
@@ -209,6 +262,13 @@ export class AuthService {
       throw new UnauthorizedException('Δεν έχετε πρόσβαση σε αυτό το ωδείο');
     }
 
+    if (membership.tenant.status === 'SUSPENDED') {
+      throw new ForbiddenException({
+        code: 'TENANT_SUSPENDED',
+        message: 'Η πρόσβαση στο ωδείο έχει ανασταλεί',
+      });
+    }
+
     const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
     const summary = this.toSummary(membership);
 
@@ -241,8 +301,72 @@ export class AuthService {
     return { success: true, message: 'Ο κωδικός ενημερώθηκε. Συνδεθείτε ξανά.' };
   }
 
-  async getSession(userId: string, activeTenantId?: string) {
+  /**
+   * Completes a login that was paused for a second factor. Kept separate from
+   * `login()` so the MFA module never has to re-implement session creation.
+   */
+  async issueSessionForUser(
+    userId: string,
+    response: Response,
+    userAgent?: string,
+  ): Promise<SessionResult> {
     const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      include: {
+        memberships: {
+          where: { isActive: true },
+          include: { tenant: true },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    });
+
+    const memberships = user.memberships.map((membership) => this.toSummary(membership));
+
+    if (memberships.length === 0 && !user.isPlatformAdmin) {
+      throw new UnauthorizedException('Ο λογαριασμός δεν έχει πρόσβαση σε ενεργό ωδείο');
+    }
+
+    const activeMembership = memberships[0] ?? null;
+    const accessToken = this.signAccessToken(user, activeMembership);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
+    await this.createSession(user.id, response, userAgent);
+
+    return {
+      accessToken,
+      user: this.toPublicUser(user),
+      memberships,
+      activeTenant: activeMembership,
+      permissions: activeMembership
+        ? [...(ROLE_PERMISSIONS[activeMembership.role] ?? [])]
+        : [...PLATFORM_PERMISSIONS],
+      requiresTenantSelection: memberships.length > 1,
+    };
+  }
+
+  /**
+   * Short-lived token proving "password verified, second factor pending".
+   * `JwtAuthGuard` rejects any payload carrying `typ: 'mfa'`, so this can never
+   * be used as an access token.
+   */
+  signMfaChallenge(userId: string): { token: string; expiresAt: string } {
+    const token = this.jwt.sign({ sub: userId, typ: 'mfa' }, { expiresIn: '5m' });
+    return { token, expiresAt: new Date(Date.now() + 5 * 60_000).toISOString() };
+  }
+
+  /** Used by password reset, MFA enrolment and disable. */
+  async revokeAllSessions(userId: string): Promise<void> {
+    await this.prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+  }
+
+  async getSession(userId: string, activeTenantId?: string) {    const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
       include: {
         memberships: {
@@ -281,12 +405,14 @@ export class AuthService {
   private signAccessToken(
     user: { id: string; email: string; isPlatformAdmin: boolean },
     membership: MembershipSummary | null,
+    mfaPending = false,
   ): string {
     return this.jwt.sign(
       {
         sub: user.id,
         email: user.email,
         adm: user.isPlatformAdmin,
+        ...(mfaPending ? { mfaPending: true } : {}),
         ...(membership
           ? {
               tid: membership.tenantId,
@@ -297,6 +423,23 @@ export class AuthService {
       },
       { expiresIn: ACCESS_TOKEN_TTL },
     );
+  }
+
+  /**
+   * Enforcement is a platform decision, not a tenant one: a tenant admin must not
+   * be able to weaken the posture for privileged accounts.
+   */
+  private shouldForceEnrolment(
+    isPlatformAdmin: boolean,
+    membership: MembershipSummary | null,
+  ): boolean {
+    if (this.config.get<string>('MFA_ENFORCE_PRIVILEGED') !== 'true') {
+      return false;
+    }
+    if (isPlatformAdmin) {
+      return true;
+    }
+    return membership?.role === 'DIRECTOR' || membership?.role === 'ADMINISTRATOR';
   }
 
   private async createSession(userId: string, response: Response, userAgent?: string): Promise<void> {

@@ -50,10 +50,11 @@ Password for every demo account: `MusicOS2026!`
 | `admin@armonia.test` | Administration | Ωδείο Αρμονία |
 | `teacher@armonia.test` | Teacher | Ωδείο Αρμονία |
 | `student@armonia.test` | Student | Ωδείο Αρμονία |
+| `guardian@armonia.test` | Guardian | Ωδείο Αρμονία |
 | `director@melodia.test` | Director | Ωδείο Μελωδία (trial) |
 | `multi@musicos.test` | Teacher | Both conservatories (tenant chooser) |
 
-The login screen also exposes one-click demo buttons in development builds.
+The login screen also exposes one-click demo buttons in development builds. The Armonia seed includes demo **assignments** (one open with a pending submission, one graded) so the teacher console (/app/assignments) and the student/guardian portal (/app/portal/assignments) have real data out of the box.
 
 ## Tenancy and security model
 
@@ -79,7 +80,7 @@ The login screen also exposes one-click demo buttons in development builds.
 - **Exams:** periods, exam scheduling and committees, eligibility-checked applications, grading workflow (submit → approve → publish), result rosters, student result history, cancellation guards and draft minutes.
 - **Documents:** template catalogue, draft/issue/approve/archive lifecycle, per-tenant protocol numbering, exam-minute drafts, scanned-file attachments, version history and PDF rendering with a draft watermark. Generated documents are issued as drafts until staff explicitly issue them.
 - **Notifications:** per-user in-app notifications, read state, and an outbox for queued email delivery.
-- **Student and guardian portal:** multi-child guardian selection, next lesson, weekly schedule, attendance, published results, own charges/payments and issued documents.
+- **Student and guardian portal:** multi-child guardian selection, next lesson, weekly schedule, attendance, published results, own charges/payments, issued documents and study assignments (submit from the student portal; grades and feedback visible to guardians).
 - **Learning workspace:** client-side metronome and tuner, explicitly pinned offline PDFs, and a local practice draft that is never published without human action.
 - **Announcements:** role/branch audiences, pinning, editing, deletion, notification fan-out.
 - **Platform console:** tenants, subscriptions, plan utilisation, tenant detail (legal/contact/member data) and audit trail.

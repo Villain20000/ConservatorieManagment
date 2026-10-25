@@ -24,6 +24,7 @@ import { TranslocoPipe } from '@jsverse/transloco';
       </div>
     </header>
   `,
+  host: { '[attr.title]': 'null' },
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PageHeaderComponent {

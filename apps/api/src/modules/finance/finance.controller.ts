@@ -13,6 +13,7 @@ import {
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator.js';
+import { RequiresFeature } from '../../common/decorators/require-feature.decorator.js';
 import { PERMISSIONS } from '../../common/permissions.js';
 import { TenantContextService } from '../../common/tenant-context.service.js';
 import {
@@ -34,6 +35,7 @@ import { FinanceService } from './finance.service.js';
 
 @ApiTags('finance')
 @ApiBearerAuth()
+@RequiresFeature('finance')
 @Controller('finance')
 export class FinanceController {
   constructor(
@@ -76,6 +78,13 @@ export class FinanceController {
   @RequirePermissions(PERMISSIONS.FINANCE_WRITE)
   cancelCharge(@Param('id') id: string, @Body() dto: CancelChargeDto) {
     return this.finance.cancelCharge(id, dto.reason);
+  }
+
+  @Post('charges/:id/reopen')
+  @HttpCode(200)
+  @RequirePermissions(PERMISSIONS.FINANCE_APPROVE)
+  reopenCharge(@Param('id') id: string) {
+    return this.finance.reopenCharge(id);
   }
 
   @Get('installment-plans')
@@ -132,6 +141,13 @@ export class FinanceController {
   @RequirePermissions(PERMISSIONS.FINANCE_APPROVE)
   voidPayment(@Param('id') id: string, @Body() dto: VoidPaymentDto) {
     return this.finance.voidPayment(id, dto.reason);
+  }
+
+  @Post('payments/:id/reopen')
+  @HttpCode(200)
+  @RequirePermissions(PERMISSIONS.FINANCE_APPROVE)
+  reopenPayment(@Param('id') id: string) {
+    return this.finance.reopenPayment(id);
   }
 
   @Get('payments/:id/receipt.pdf')

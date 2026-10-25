@@ -2,6 +2,7 @@ import { Controller, Get, Param, Query, Res, StreamableFile } from '@nestjs/comm
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator.js';
+import { RequiresFeature } from '../../common/decorators/require-feature.decorator.js';
 import { PERMISSIONS } from '../../common/permissions.js';
 import { setPdfHeaders } from '../documents/documents.controller.js';
 import {
@@ -13,6 +14,7 @@ import { PortalService } from './portal.service.js';
 
 @ApiTags('portal')
 @ApiBearerAuth()
+@RequiresFeature('portals')
 @Controller('portal')
 @RequirePermissions(PERMISSIONS.PORTAL_READ)
 export class PortalController {
@@ -56,6 +58,11 @@ export class PortalController {
   @Get('documents')
   documents(@Query() query: PortalStudentQueryDto) {
     return this.portal.documents(query.studentId);
+  }
+
+  @Get('assignments')
+  assignments(@Query() query: PortalStudentQueryDto) {
+    return this.portal.assignments(query.studentId);
   }
 
   @Get('documents/:id/pdf')

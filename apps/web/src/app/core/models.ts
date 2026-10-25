@@ -861,3 +861,46 @@ export interface PlatformTenantDetail extends PlatformTenant {
   phone?: string | null;
   members?: { id: string; role: Role; user: { firstName: string; lastName: string; email: string } }[];
 }
+
+export type AssignmentStatusModel = 'ACTIVE' | 'CLOSED' | 'CANCELLED';
+export type SubmissionStatusModel = 'SUBMITTED' | 'GRADED' | 'RETURNED';
+
+export interface AssignmentSubmission {
+  id: string;
+  status: SubmissionStatusModel;
+  content: string | null;
+  submittedAt: string | null;
+  grade: number | null;
+  feedback: string | null;
+  gradedAt: string | null;
+  student?: StudentRef;
+  gradedBy?: { id: string; firstName: string; lastName: string } | null;
+}
+export interface Assignment {
+  id: string;
+  title: string;
+  description: string | null;
+  assignedOn: string;
+  dueAt: string | null;
+  status: AssignmentStatusModel;
+  program?: { id: string; name: string; color?: string | null } | null;
+  teacher?: { id: string; firstName: string; lastName: string } | null;
+  lessonSeries?: { id: string; title: string } | null;
+  targetCount?: number;
+  gradedCount?: number;
+  targets?: {
+    id: string;
+    student: { id: string; firstName: string; lastName: string; registrationNumber: string };
+  }[];
+  submissions?: AssignmentSubmission[];
+}
+export interface PortalAssignment {
+  id: string;
+  title: string;
+  description: string | null;
+  assignedOn: string;
+  dueAt: string | null;
+  program?: { id: string; name: string; color?: string | null } | null;
+  teacher?: { id: string; firstName: string; lastName: string } | null;
+  submission: AssignmentSubmission | null;
+}

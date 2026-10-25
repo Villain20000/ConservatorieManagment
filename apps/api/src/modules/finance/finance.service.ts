@@ -395,6 +395,42 @@ export class FinanceService {
     return updated;
   }
 
+  /**
+   * Undo for a mis-clicked cancellation. Status is recomputed from what has
+   * actually been paid rather than restored from a stored snapshot.
+   */
+  async reopenCharge(id: string) {
+    const charge = await this.prisma.charge.findFirst({
+      where: { id, tenantId: this.ctx.tenantId },
+    });
+    if (!charge) throw new NotFoundException('Η χρέωση δεν βρέθηκε');
+    if (charge.status !== 'CANCELLED') {
+      throw new ConflictException({
+        code: 'CHARGE_NOT_CANCELLED',
+        message: 'Η χρέωση δεν είναι ακυρωμένη',
+      });
+    }
+
+    const status =
+      charge.paidAmountCents <= 0
+        ? 'PENDING'
+        : charge.paidAmountCents >= charge.amountCents
+          ? 'PAID'
+          : 'PARTIAL';
+
+    const updated = await this.prisma.charge.update({
+      where: { id },
+      data: {
+        status,
+        cancelledAt: null,
+        cancelledById: null,
+        cancellationReason: null,
+      },
+    });
+    await this.audit.record('charge.reopened', 'Charge', id, { status });
+    return updated;
+  }
+
   async bulkTuition(dto: BulkTuitionDto) {
     const tenantId = this.ctx.tenantId;
     const enrollments = await this.prisma.enrollment.findMany({
@@ -907,6 +943,59 @@ export class FinanceService {
       receiptNumber: payment.receiptNumber,
       amountCents: payment.amountCents,
       reason,
+    });
+    return updated;
+  }
+
+  /**
+   * Undo for a voided payment. Re-adding the allocations must not push any charge
+   * above its face value — that is the one case where reopening would corrupt the
+   * ledger, so it is refused rather than silently clamped.
+   */
+  async reopenPayment(id: string) {
+    const payment = await this.prisma.payment.findFirst({
+      where: { id, tenantId: this.ctx.tenantId },
+      include: { allocations: true },
+    });
+    if (!payment) throw new NotFoundException('Η πληρωμή δεν βρέθηκε');
+    if (payment.status !== 'VOIDED') {
+      throw new ConflictException({
+        code: 'PAYMENT_NOT_VOIDED',
+        message: 'Η πληρωμή δεν είναι ακυρωμένη',
+      });
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      for (const allocation of payment.allocations) {
+        const charge = await tx.charge.findFirst({
+          where: { id: allocation.chargeId, tenantId: this.ctx.tenantId },
+        });
+        if (!charge) continue;
+        if (
+          charge.status === 'CANCELLED' ||
+          charge.paidAmountCents + allocation.amountCents > charge.amountCents
+        ) {
+          throw new ConflictException({
+            code: 'CHARGE_WOULD_BE_OVERPAID',
+            message:
+              'Η επαναφορά της πληρωμής θα υπερκάλυπτε χρέωση. Ελέγξτε τις σχετικές χρεώσεις.',
+          });
+        }
+      }
+
+      const result = await tx.payment.update({
+        where: { id },
+        data: { status: 'POSTED', voidedAt: null, voidedById: null, voidReason: null },
+      });
+      for (const chargeId of new Set(payment.allocations.map((allocation) => allocation.chargeId))) {
+        await this.recalculateCharge(tx, chargeId);
+      }
+      return result;
+    });
+
+    await this.audit.record('payment.reopened', 'Payment', id, {
+      receiptNumber: payment.receiptNumber,
+      amountCents: payment.amountCents,
     });
     return updated;
   }

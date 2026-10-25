@@ -50,6 +50,12 @@ export class AnnouncementsController {
   remove(@Param('id') id: string) {
     return this.announcements.remove(id);
   }
+
+  @Post(':id/restore')
+  @RequirePermissions(PERMISSIONS.ANNOUNCEMENTS_WRITE)
+  restore(@Param('id') id: string) {
+    return this.announcements.restore(id);
+  }
 }
 
 @ApiTags('notifications')

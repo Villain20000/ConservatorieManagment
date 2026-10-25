@@ -1,8 +1,15 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { ClsService } from 'nestjs-cls';
 import { PrismaService } from '../../database/prisma.service.js';
+import { ALLOW_MFA_PENDING_KEY } from '../decorators/allow-mfa-pending.decorator.js';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator.js';
 import { PLATFORM_PERMISSIONS, ROLE_PERMISSIONS } from '../permissions.js';
 import type { RequestUser, Role } from '../types/request-user.js';
@@ -14,6 +21,10 @@ interface AccessTokenPayload {
   tid?: string;
   mid?: string;
   role?: Role;
+  /** `'mfa'` marks a short-lived second-factor challenge, never an access token. */
+  typ?: string;
+  /** Set when enforcement is on but the account has not enrolled yet. */
+  mfaPending?: boolean;
 }
 
 @Injectable()
@@ -52,6 +63,13 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('Η συνεδρία έληξε ή δεν είναι έγκυρη');
     }
 
+    // An MFA challenge is signed with the same secret as an access token. Without
+    // this check it would be accepted as a full session, defeating the second
+    // factor entirely. This is the single most important line in the MFA change.
+    if (payload.typ === 'mfa') {
+      throw new UnauthorizedException('Η συνεδρία δεν είναι έγκυρη');
+    }
+
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
       include: { memberships: true },
@@ -82,6 +100,7 @@ export class JwtAuthGuard implements CanActivate {
       permissions: membership
         ? [...(ROLE_PERMISSIONS[membership.role] ?? [])]
         : [...PLATFORM_PERMISSIONS],
+      mfaEnabled: user.mfaEnabledAt !== null,
       ...(membership
         ? {
             tenantId: membership.tenantId,
@@ -96,6 +115,24 @@ export class JwtAuthGuard implements CanActivate {
     this.cls.set('user', requestUser);
     if (requestUser.tenantId) {
       this.cls.set('tenantId', requestUser.tenantId);
+    }
+
+    // Enforcement is staged: an unenrolled privileged user still authenticates,
+    // but every route except enrolment/profile/logout is closed to them.
+    if (payload.mfaPending) {
+      const allowPending = this.reflector.getAllAndOverride<boolean>(ALLOW_MFA_PENDING_KEY, [
+        context.getHandler(),
+        context.getClass(),
+      ]);
+
+      if (!allowPending) {
+        requestUser.mfaPendingEnrolment = true;
+        this.cls.set('user', requestUser);
+        throw new ForbiddenException({
+          code: 'MFA_ENROLMENT_REQUIRED',
+          message: 'Απαιτείται ενεργοποίηση ελέγχου ταυτότητας δύο παραγόντων',
+        });
+      }
     }
 
     return true;

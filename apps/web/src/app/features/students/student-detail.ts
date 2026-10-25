@@ -843,21 +843,21 @@ interface StudentFormValue {
         <div class="grid gap-4 sm:grid-cols-2">
           <label class="field">
             <span class="field-label">{{ 'students.form.firstName' | transloco }}</span>
-            <input class="input" formControlName="firstName" />
+            <input name="firstName" class="input" formControlName="firstName" autocomplete="off" />
             @if (editForm.controls.firstName.invalid && editForm.controls.firstName.touched) {
               <span class="field-error">{{ 'common.required' | transloco }}</span>
             }
           </label>
           <label class="field">
             <span class="field-label">{{ 'students.form.lastName' | transloco }}</span>
-            <input class="input" formControlName="lastName" />
+            <input name="lastName" class="input" formControlName="lastName" autocomplete="off" />
             @if (editForm.controls.lastName.invalid && editForm.controls.lastName.touched) {
               <span class="field-error">{{ 'common.required' | transloco }}</span>
             }
           </label>
           <label class="field">
             <span class="field-label">{{ 'students.form.branch' | transloco }}</span>
-            <select class="select" formControlName="branchId">
+            <select name="branchId" class="select" formControlName="branchId">
               @for (branch of options()?.branches ?? []; track branch.id) {
                 <option [value]="branch.id">{{ branch.name }}</option>
               }
@@ -868,15 +868,15 @@ interface StudentFormValue {
           </label>
           <label class="field">
             <span class="field-label">{{ 'students.form.registrationNumber' | transloco }}</span>
-            <input class="input" formControlName="registrationNumber" />
+            <input name="registrationNumber" class="input" formControlName="registrationNumber" autocomplete="off" />
           </label>
           <label class="field">
             <span class="field-label">{{ 'students.form.birthDate' | transloco }}</span>
-            <input class="input" type="date" formControlName="birthDate" />
+            <input name="birthDate" class="input" type="date" formControlName="birthDate" autocomplete="off" />
           </label>
           <label class="field">
             <span class="field-label">{{ 'students.form.gender' | transloco }}</span>
-            <select class="select" formControlName="gender">
+            <select name="gender" class="select" formControlName="gender">
               <option value="">{{ 'common.none' | transloco }}</option>
               <option value="male">{{ 'students.form.male' | transloco }}</option>
               <option value="female">{{ 'students.form.female' | transloco }}</option>
@@ -885,26 +885,26 @@ interface StudentFormValue {
           </label>
           <label class="field">
             <span class="field-label">{{ 'students.form.email' | transloco }}</span>
-            <input class="input" type="email" formControlName="email" />
+            <input name="email" class="input" type="email" formControlName="email" autocomplete="off" />
             @if (editForm.controls.email.invalid && editForm.controls.email.touched) {
               <span class="field-error">{{ 'common.invalidEmail' | transloco }}</span>
             }
           </label>
           <label class="field">
             <span class="field-label">{{ 'students.form.phone' | transloco }}</span>
-            <input class="input" type="tel" formControlName="phone" />
+            <input name="phone" class="input" type="tel" formControlName="phone" autocomplete="off" />
           </label>
           <label class="field">
             <span class="field-label">{{ 'students.form.address' | transloco }}</span>
-            <input class="input" formControlName="address" />
+            <input name="address" class="input" formControlName="address" autocomplete="off" />
           </label>
           <label class="field">
             <span class="field-label">{{ 'students.form.city' | transloco }}</span>
-            <input class="input" formControlName="city" />
+            <input name="city" class="input" formControlName="city" autocomplete="off" />
           </label>
           <label class="field">
             <span class="field-label">{{ 'students.form.status' | transloco }}</span>
-            <select class="select" formControlName="status">
+            <select name="status" class="select" formControlName="status">
               @for (option of statuses; track option) {
                 <option [value]="option">{{ 'status.' + option | transloco }}</option>
               }
@@ -913,24 +913,22 @@ interface StudentFormValue {
         </div>
         <label class="field">
           <span class="field-label">{{ 'students.form.notes' | transloco }}</span>
-          <textarea class="textarea" formControlName="notes" rows="3"></textarea>
+          <textarea name="notes" class="textarea" formControlName="notes" rows="3"></textarea>
         </label>
         <div class="divider"></div>
         <div class="space-y-3">
           <label class="flex items-start gap-2.5 text-[13px] text-ink-2">
-            <input
+            <input name="consentData"
               type="checkbox"
               formControlName="consentData"
-              class="mt-0.5 h-4 w-4 rounded border-line accent-[var(--accent)]"
-            />
+              class="mt-0.5 h-4 w-4 rounded border-line accent-[var(--accent)]" autocomplete="off" />
             <span>{{ 'students.form.consentData' | transloco }}</span>
           </label>
           <label class="flex items-start gap-2.5 text-[13px] text-ink-2">
-            <input
+            <input name="consentMedia"
               type="checkbox"
               formControlName="consentMedia"
-              class="mt-0.5 h-4 w-4 rounded border-line accent-[var(--accent)]"
-            />
+              class="mt-0.5 h-4 w-4 rounded border-line accent-[var(--accent)]" autocomplete="off" />
             <span>{{ 'students.form.consentMedia' | transloco }}</span>
           </label>
         </div>
@@ -966,7 +964,7 @@ interface StudentFormValue {
       >
         <label class="field">
           <span class="field-label">{{ 'students.form.status' | transloco }}</span>
-          <select class="select" formControlName="status">
+          <select name="status" class="select" formControlName="status">
             @for (option of statuses; track option) {
               <option [value]="option">{{ 'status.' + option | transloco }}</option>
             }
@@ -974,7 +972,7 @@ interface StudentFormValue {
         </label>
         <label class="field">
           <span class="field-label">{{ 'students.detail.status.reason' | transloco }}</span>
-          <textarea class="textarea" formControlName="reason" rows="3"></textarea>
+          <textarea name="reason" class="textarea" formControlName="reason" rows="3"></textarea>
         </label>
       </form>
       <div drawer-footer class="flex justify-end gap-2">
@@ -1010,7 +1008,7 @@ interface StudentFormValue {
             <span class="field-label">{{
               'students.detail.guardians.form.firstName' | transloco
             }}</span>
-            <input class="input" formControlName="firstName" />
+            <input name="firstName" class="input" formControlName="firstName" autocomplete="off" />
             @if (
               guardianForm.controls.firstName.invalid && guardianForm.controls.firstName.touched
             ) {
@@ -1021,7 +1019,7 @@ interface StudentFormValue {
             <span class="field-label">{{
               'students.detail.guardians.form.lastName' | transloco
             }}</span>
-            <input class="input" formControlName="lastName" />
+            <input name="lastName" class="input" formControlName="lastName" autocomplete="off" />
             @if (guardianForm.controls.lastName.invalid && guardianForm.controls.lastName.touched) {
               <span class="field-error">{{ 'common.required' | transloco }}</span>
             }
@@ -1030,19 +1028,19 @@ interface StudentFormValue {
             <span class="field-label">{{
               'students.detail.guardians.form.relationship' | transloco
             }}</span>
-            <input class="input" formControlName="relationship" />
+            <input name="relationship" class="input" formControlName="relationship" autocomplete="off" />
           </label>
           <label class="field">
             <span class="field-label">{{
               'students.detail.guardians.form.phone' | transloco
             }}</span>
-            <input class="input" type="tel" formControlName="phone" />
+            <input name="phone" class="input" type="tel" formControlName="phone" autocomplete="off" />
           </label>
           <label class="field">
             <span class="field-label">{{
               'students.detail.guardians.form.email' | transloco
             }}</span>
-            <input class="input" type="email" formControlName="email" />
+            <input name="email" class="input" type="email" formControlName="email" autocomplete="off" />
             @if (guardianForm.controls.email.invalid && guardianForm.controls.email.touched) {
               <span class="field-error">{{ 'common.invalidEmail' | transloco }}</span>
             }
@@ -1051,27 +1049,26 @@ interface StudentFormValue {
             <span class="field-label">{{
               'students.detail.guardians.form.taxId' | transloco
             }}</span>
-            <input class="input" formControlName="taxId" />
+            <input name="taxId" class="input" formControlName="taxId" autocomplete="off" />
           </label>
           <label class="field">
             <span class="field-label">{{
               'students.detail.guardians.form.occupation' | transloco
             }}</span>
-            <input class="input" formControlName="occupation" />
+            <input name="occupation" class="input" formControlName="occupation" autocomplete="off" />
           </label>
           <label class="field sm:col-span-2">
             <span class="field-label">{{
               'students.detail.guardians.form.address' | transloco
             }}</span>
-            <input class="input" formControlName="address" />
+            <input name="address" class="input" formControlName="address" autocomplete="off" />
           </label>
         </div>
         <label class="flex items-center gap-2.5 text-[13px] text-ink-2">
-          <input
+          <input name="isPrimary"
             type="checkbox"
             formControlName="isPrimary"
-            class="h-4 w-4 rounded border-line accent-[var(--accent)]"
-          />
+            class="h-4 w-4 rounded border-line accent-[var(--accent)]" autocomplete="off" />
           <span>{{ 'students.detail.guardians.form.primary' | transloco }}</span>
         </label>
       </form>
@@ -1102,7 +1099,7 @@ interface StudentFormValue {
           <span class="field-label">{{
             'students.detail.enrollments.form.program' | transloco
           }}</span>
-          <select class="select" formControlName="programId">
+          <select name="programId" class="select" formControlName="programId">
             <option value="">{{ 'common.none' | transloco }}</option>
             @for (program of options()?.programs ?? []; track program.id) {
               <option [value]="program.id">{{ program.name }}</option>
@@ -1118,7 +1115,7 @@ interface StudentFormValue {
           <span class="field-label">{{
             'students.detail.enrollments.form.level' | transloco
           }}</span>
-          <select class="select" formControlName="levelId">
+          <select name="levelId" class="select" formControlName="levelId">
             <option value="">{{ 'common.none' | transloco }}</option>
             @for (level of options()?.levels ?? []; track level.id) {
               <option [value]="level.id">{{ level.name }}</option>
@@ -1130,7 +1127,7 @@ interface StudentFormValue {
         </label>
         <label class="field">
           <span class="field-label">{{ 'students.detail.enrollments.form.year' | transloco }}</span>
-          <select class="select" formControlName="academicYearId">
+          <select name="academicYearId" class="select" formControlName="academicYearId">
             <option value="">{{ 'common.none' | transloco }}</option>
             @for (year of options()?.years ?? []; track year.id) {
               <option [value]="year.id">{{ year.name }}</option>
@@ -1147,7 +1144,7 @@ interface StudentFormValue {
           <span class="field-label">{{
             'students.detail.enrollments.form.branch' | transloco
           }}</span>
-          <select class="select" formControlName="branchId">
+          <select name="branchId" class="select" formControlName="branchId">
             <option value="">{{ 'common.none' | transloco }}</option>
             @for (branch of options()?.branches ?? []; track branch.id) {
               <option [value]="branch.id">{{ branch.name }}</option>
@@ -1163,7 +1160,7 @@ interface StudentFormValue {
           <span class="field-label">{{
             'students.detail.enrollments.form.teacher' | transloco
           }}</span>
-          <select class="select" formControlName="teacherId">
+          <select name="teacherId" class="select" formControlName="teacherId">
             <option value="">{{ 'students.detail.enrollments.form.noTeacher' | transloco }}</option>
             @for (teacher of options()?.teachers ?? []; track teacher.id) {
               <option [value]="teacher.id">{{ teacher.firstName }} {{ teacher.lastName }}</option>

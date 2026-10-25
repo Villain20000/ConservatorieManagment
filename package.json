@@ -11,6 +11,7 @@
     "dev:api": "npm run start:dev --workspace apps/api",
     "dev:web": "npm run start --workspace apps/web",
     "db:up": "docker compose up -d",
+    "mail:up": "docker compose --profile mail up -d",
     "db:down": "docker compose down",
     "db:migrate": "npm run prisma:migrate --workspace apps/api",
     "db:generate": "npm run prisma:generate --workspace apps/api",

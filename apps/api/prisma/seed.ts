@@ -4,6 +4,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { eachDayOfInterval, format, getDay } from 'date-fns';
 import { fromZonedTime } from 'date-fns-tz';
 import {
+  AssignmentStatus,
   ChargeStatus,
   DocumentStatus,
   DocumentType,
@@ -23,6 +24,7 @@ import {
   ScholarshipType,
   SeriesStatus,
   StudentStatus,
+  SubmissionStatus,
   SubscriptionStatus,
   TeacherStatus,
   TenantStatus,
@@ -104,9 +106,10 @@ async function main() {
       exam_periods, exams, payments, charges, notifications,
       announcements, lesson_notes, attendances, lesson_students, lessons,
       lesson_series_students, lesson_series, enrollments, student_guardians,
+      assignment_submissions, assignment_targets, assignments,
       guardians, students, teachers, rooms, levels, programs, academic_years,
       refresh_tokens, memberships, branches, subscriptions, audit_logs, tenants,
-      feature_flags, plans, users
+      plans, users
     RESTART IDENTITY CASCADE;
   `);
 
@@ -241,6 +244,18 @@ async function main() {
       status: UserStatus.ACTIVE,
     },
   });
+  // A suspended tenant, so suspension behaviour can be exercised end to end.
+  const dokimiDirectorUser = await prisma.user.create({
+    data: {
+      email: 'director@dokimi.test',
+      passwordHash,
+      firstName: 'Ελένη',
+      lastName: 'Σταύρου',
+      phone: '231 044 5500',
+      locale: 'el',
+      status: UserStatus.ACTIVE,
+    },
+  });
 
   await prisma.user.create({
     data: {
@@ -277,6 +292,20 @@ async function main() {
     },
   });
 
+  const dokimi = await prisma.tenant.create({
+    data: {
+      name: 'Ωδείο Δοκιμή',
+      slug: 'dokimi',
+      legalName: 'Ωδείο Δοκιμή Ο.Ε.',
+      taxId: '803456789',
+      status: TenantStatus.SUSPENDED,
+      suspendedAt: dateAtUtc('2026-09-15'),
+      suspensionReason: 'trial_expired',
+      locale: 'el',
+      timezone: TIMEZONE,
+    },
+  });
+
   await prisma.subscription.createMany({
     data: [
       {
@@ -292,16 +321,13 @@ async function main() {
         trialEndsAt: dateAtUtc('2026-12-01'),
         currentPeriodEnd: dateAtUtc('2026-12-01'),
       },
-    ],
-  });
-
-  await prisma.featureFlag.createMany({
-    data: [
-      { key: 'ai_assistant', description: 'AI βοηθός για εκπαιδευτικές προτάσεις', enabled: false },
-      { key: 'white_label', description: 'Προσαρμοσμένο domain και branding', enabled: false },
-      { key: 'online_payments', description: 'Πληρωμές μέσω παρόχου', enabled: false },
-      { key: 'parent_portal', description: 'Portal κηδεμόνων', enabled: false },
-      { key: 'advanced_analytics', description: 'Προηγμένα analytics διεύθυνσης', enabled: true },
+      {
+        tenantId: dokimi.id,
+        planId: starter.id,
+        status: SubscriptionStatus.TRIALING,
+        trialEndsAt: dateAtUtc('2026-09-01'),
+        currentPeriodEnd: dateAtUtc('2026-09-01'),
+      },
     ],
   });
 
@@ -336,6 +362,17 @@ async function main() {
     },
   });
 
+  const dokimiBranch = await prisma.branch.create({
+    data: {
+      tenantId: dokimi.id,
+      name: 'Κεντρικό – Θεσσαλονίκη',
+      code: 'DKT',
+      address: 'Εγνατία 100',
+      city: 'Θεσσαλονίκη',
+      phone: '231 044 5500',
+    },
+  });
+
   await prisma.membership.createMany({
     data: [
       { userId: directorUser.id, tenantId: armonia.id, role: MembershipRole.DIRECTOR },
@@ -344,6 +381,7 @@ async function main() {
       { userId: studentUser.id, tenantId: armonia.id, role: MembershipRole.STUDENT, branchId: armoniaAth.id },
       { userId: guardianUser.id, tenantId: armonia.id, role: MembershipRole.GUARDIAN },
       { userId: melodiaDirectorUser.id, tenantId: melodia.id, role: MembershipRole.DIRECTOR },
+      { userId: dokimiDirectorUser.id, tenantId: dokimi.id, role: MembershipRole.DIRECTOR, branchId: dokimiBranch.id },
       { userId: multiUser.id, tenantId: armonia.id, role: MembershipRole.TEACHER },
       { userId: multiUser.id, tenantId: melodia.id, role: MembershipRole.TEACHER },
     ],
@@ -399,6 +437,36 @@ async function main() {
 
   const armoniaAcademics = await createAcademicSetup(armonia.id);
   const melodiaAcademics = await createAcademicSetup(melodia.id);
+
+  // Greek school-year calendar: national holidays plus the December break,
+  // scoped to the whole tenant. The scheduling engine skips these dates when it
+  // materialises a weekly series, so the demo schedule has real gaps.
+  const greekCalendar = [
+    { date: isoDate(2026, 10, 28), kind: 'HOLIDAY', name: 'Επέτειος της 28ης Οκτωβρίου' },
+    { date: isoDate(2026, 12, 24), kind: 'CLOSED', name: 'Παραμονή Χριστουγέννων' },
+    { date: isoDate(2026, 12, 25), kind: 'HOLIDAY', name: 'Χριστούγεννα' },
+    { date: isoDate(2026, 12, 26), kind: 'HOLIDAY', name: 'Σύναξη της Θεοτόκου' },
+    { date: isoDate(2026, 12, 31), kind: 'CLOSED', name: 'Παραμονή Πρωτοχρονιάς' },
+    { date: isoDate(2027, 1, 1), kind: 'HOLIDAY', name: 'Πρωτοχρονιά' },
+    { date: isoDate(2027, 1, 6), kind: 'HOLIDAY', name: 'Θεοφάνεια' },
+    { date: isoDate(2027, 3, 15), kind: 'HOLIDAY', name: 'Καθαρά Δευτέρα' },
+    { date: isoDate(2027, 3, 25), kind: 'HOLIDAY', name: 'Επέτειος της 25ης Μαρτίου' },
+    { date: isoDate(2027, 4, 30), kind: 'CLOSED', name: 'Διακοπές Πάσχα' },
+    { date: isoDate(2027, 5, 3), kind: 'HOLIDAY', name: 'Δευτέρα του Πάσχα' },
+    { date: isoDate(2027, 6, 21), kind: 'MAKEUP_DAY', name: 'Ημέρα αναπληρώσεων Ιουνίου' },
+  ] as const;
+  for (const tenantId of [armonia.id, melodia.id]) {
+    await prisma.calendarDay.createMany({
+      data: greekCalendar.map((day) => ({
+        tenantId,
+        date: day.date,
+        kind: day.kind,
+        name: day.name,
+        branchId: null,
+      })),
+      skipDuplicates: true,
+    });
+  }
 
   const armoniaRooms = await Promise.all([
     prisma.room.create({ data: { tenantId: armonia.id, branchId: armoniaAth.id, name: 'Αίθουσα Πιάνου 1', capacity: 2 } }),
@@ -670,7 +738,10 @@ async function main() {
       const teacher = options.teachers[globalIndex % options.teachers.length];
       const program = programById.get(teacher.programCode) ?? armoniaAcademics.programs[0];
       const type = i % 4 === 3 ? LessonType.GROUP : LessonType.INDIVIDUAL;
-      const studentPool = options.branchId === armoniaSkg.id ? armoniaSkgStudents : armoniaAthStudents;
+      // Single and group lessons both draw from the tenant's own student pool.
+      // (This used to fall back to the Armonia pool for any branch that was not
+      // Thessaloniki, which leaked Armonia student ids into Melodia series.)
+      const studentPool = options.students;
       const groupSize = options.branchId === armoniaSkg.id ? 2 : 4;
       const start = (globalIndex * 2) % Math.max(studentPool.length, 1);
       const studentIds =
@@ -911,6 +982,85 @@ async function main() {
     melodiaAcademics.currentYear.id,
     melodiaTeachers,
   );
+
+  // Demo assignments for the primary tenant: one graded, one open with a
+  // submission awaiting grading.
+  {
+    const tenantId = armonia.id;
+    const assignmentTeacher = armoniaTeachers[0];
+    if (!assignmentTeacher) throw new Error('Seed: no armonia teacher for assignments');
+    const assignmentStudents = armoniaAthStudents.slice(0, 4);
+    const athensToday = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Athens' });
+    const today = new Date(`${athensToday}T00:00:00.000Z`);
+    const day = (n: number) => new Date(today.getTime() + n * 24 * 3600 * 1000);
+    const open = await prisma.assignment.create({
+      data: {
+        tenantId,
+        createdById: teacherUser.id,
+        teacherId: assignmentTeacher.id,
+        title: 'Κλίμακες Ρε μείζονος – δύο οκτάβες',
+        description:
+          'Εξασκηθείτε στις κλίμακες Ρε μείζονος με σταθερό tempo 80. Ηχογραφήστε τις παρατηρήσεις σας.',
+        assignedOn: today,
+        dueAt: day(7),
+      },
+    });
+    await prisma.assignmentTarget.createMany({
+      data: assignmentStudents.map((student) => ({
+        tenantId,
+        assignmentId: open.id,
+        studentId: student.id,
+      })),
+    });
+    // First student submitted; the teacher grades it in-app.
+    await prisma.assignmentSubmission.create({
+      data: {
+        tenantId,
+        assignmentId: open.id,
+        studentId: assignmentStudents[0].id,
+        content: 'Εξασκήθηκα 25 λεπτά την ημέρα. Το σολέζ δυσκολεύει στο τέλος.',
+        submittedAt: new Date(),
+      },
+    });
+
+    const graded = await prisma.assignment.create({
+      data: {
+        tenantId,
+        createdById: teacherUser.id,
+        teacherId: assignmentTeacher.id,
+        title: 'Σολφέζ – ρυθμική ανάγνωση 4/4',
+        description: 'Διαβάστε τα δύο πρώτα μέτρα με μετρόνο 60 και σημειώστε τις δυσκολίες.',
+        assignedOn: day(-7),
+        dueAt: day(-1),
+      },
+    });
+    await prisma.assignmentTarget.createMany({
+      data: assignmentStudents.map((student) => ({
+        tenantId,
+        assignmentId: graded.id,
+        studentId: student.id,
+      })),
+    });
+    for (const [index, student] of assignmentStudents.entries()) {
+      await prisma.assignmentSubmission.create({
+        data: {
+          tenantId,
+          assignmentId: graded.id,
+          studentId: student.id,
+          content: 'Ολοκλήρωσα τη ρυθμική ανάγνωση.',
+          submittedAt: day(-2),
+          grade: index === 0 ? 92 : index === 1 ? 85 : index === 2 ? 74 : 88,
+          feedback:
+            index === 0
+              ? 'Πολύ καλή δουλειά στη φραστική.'
+              : 'Καλή προσπάθεια, δουλέψτε σταθερότητα.',
+          gradedById: teacherUser.id,
+          gradedAt: day(-1),
+          status: SubmissionStatus.GRADED,
+        },
+      });
+    }
+  }
 
   async function createFinance(
     tenantId: string,
@@ -1364,7 +1514,8 @@ async function main() {
   });
   console.log('Demo password for all accounts:', DEMO_PASSWORD);
   console.log('Accounts: superadmin@musicos.test, director@armonia.test, admin@armonia.test,');
-  console.log('teacher@armonia.test, student@armonia.test, guardian@armonia.test, director@melodia.test, multi@musicos.test');
+  console.log('teacher@armonia.test, student@armonia.test, guardian@armonia.test, director@melodia.test,');
+  console.log('director@dokimi.test (SUSPENDED tenant), multi@musicos.test');
   console.log('Super admin:', superAdmin.email);
   console.log('Plans:', starter.code, professional.code);
 }

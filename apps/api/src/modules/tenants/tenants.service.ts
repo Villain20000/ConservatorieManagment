@@ -2,6 +2,7 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '../../generated/prisma/client.js';
 import { AuditService } from '../../common/audit.service.js';
+import { EntitlementsService } from '../../common/entitlements.service.js';
 import { TenantContextService } from '../../common/tenant-context.service.js';
 import { PrismaService } from '../../database/prisma.service.js';
 import type { CreateBranchDto, UpdateBranchDto, UpdateTenantDto } from './dto/tenant.dto.js';
@@ -12,6 +13,7 @@ export class TenantsService {
     private readonly prisma: PrismaService,
     private readonly ctx: TenantContextService,
     private readonly audit: AuditService,
+    private readonly entitlementsService: EntitlementsService,
   ) {}
 
   async getTenant() {
@@ -21,21 +23,29 @@ export class TenantsService {
       include: {
         subscription: { include: { plan: true } },
         branches: { orderBy: { name: 'asc' } },
-        _count: { select: { students: true, teachers: true, memberships: true } },
       },
     });
     if (!tenant) throw new NotFoundException('Το ωδείο δεν βρέθηκε');
 
+    // Counts come from EntitlementsService, not `_count`, because relation
+    // aggregates bypass the soft-delete extension and would include trashed rows.
+    const snapshot = await this.entitlementsService.snapshot(tenantId);
+
     return {
       ...tenant,
       usage: {
-        students: tenant._count.students,
-        teachers: tenant._count.teachers,
-        members: tenant._count.memberships,
-        maxStudents: tenant.subscription?.plan.maxStudents ?? null,
-        maxTeachers: tenant.subscription?.plan.maxTeachers ?? null,
+        students: snapshot.usage.students,
+        teachers: snapshot.usage.teachers,
+        members: snapshot.usage.members,
+        maxStudents: snapshot.plan?.maxStudents ?? null,
+        maxTeachers: snapshot.plan?.maxTeachers ?? null,
       },
+      entitlements: snapshot,
     };
+  }
+
+  entitlements() {
+    return this.entitlementsService.snapshot(this.ctx.tenantId);
   }
 
   async updateTenant(dto: UpdateTenantDto) {
@@ -56,6 +66,7 @@ export class TenantsService {
   }
 
   async createBranch(dto: CreateBranchDto) {
+    await this.entitlementsService.assertCanAddBranch(this.ctx.tenantId);
     try {
       const branch = await this.prisma.branch.create({
         data: { ...dto, tenantId: this.ctx.tenantId },

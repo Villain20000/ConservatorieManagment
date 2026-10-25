@@ -12,6 +12,20 @@ import type {
 
 const TENANT_KEY = 'musicos.tenant';
 const SESSION_KEY = 'musicos.session';
+export const MFA_CHALLENGE_KEY = 'musicos.mfa.challenge';
+
+/** Password accepted, second factor pending. Carries no session. */
+export interface MfaChallenge {
+  mfaRequired: true;
+  challengeToken: string;
+  expiresAt: string;
+}
+
+export type LoginOutcome = Session | MfaChallenge;
+
+export function isMfaChallenge(result: LoginOutcome): result is MfaChallenge {
+  return (result as MfaChallenge).mfaRequired === true;
+}
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -58,12 +72,22 @@ export class AuthService {
     }
   }
 
-  async login(email: string, password: string): Promise<Session> {
-    const session = await firstValueFrom(
-      this.api.post<Session>('/auth/login', { email, password }),
+  async login(email: string, password: string): Promise<LoginOutcome> {
+    const result = await firstValueFrom(
+      this.api.post<LoginOutcome>('/auth/login', { email, password }),
     );
+    if (isMfaChallenge(result)) {
+      // No session is established: the refresh cookie is only set after the
+      // second factor is verified.
+      return result;
+    }
+    this.applySession(result);
+    return result;
+  }
+
+  /** Applies the session returned by `/auth/mfa/verify`. */
+  completeMfa(session: Session): void {
     this.applySession(session);
-    return session;
   }
 
   async selectTenant(tenantId: string): Promise<void> {

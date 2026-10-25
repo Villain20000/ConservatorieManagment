@@ -80,6 +80,18 @@ export class StudentsController {
   addEnrollment(@Param('id') id: string, @Body() dto: EnrollmentInputDto) {
     return this.people.addEnrollment(id, dto);
   }
+
+  @Delete(':id')
+  @RequirePermissions(PERMISSIONS.STUDENTS_WRITE)
+  remove(@Param('id') id: string) {
+    return this.people.removeStudent(id);
+  }
+
+  @Post(':id/restore')
+  @RequirePermissions(PERMISSIONS.STUDENTS_WRITE)
+  restore(@Param('id') id: string) {
+    return this.people.restoreStudent(id);
+  }
 }
 
 @ApiTags('enrollments')
@@ -142,5 +154,17 @@ export class TeachersController {
   @RequirePermissions(PERMISSIONS.TEACHERS_WRITE)
   update(@Param('id') id: string, @Body() dto: UpdateTeacherDto) {
     return this.people.updateTeacher(id, dto);
+  }
+
+  @Delete(':id')
+  @RequirePermissions(PERMISSIONS.TEACHERS_WRITE)
+  remove(@Param('id') id: string) {
+    return this.people.removeTeacher(id);
+  }
+
+  @Post(':id/restore')
+  @RequirePermissions(PERMISSIONS.TEACHERS_WRITE)
+  restore(@Param('id') id: string) {
+    return this.people.restoreTeacher(id);
   }
 }

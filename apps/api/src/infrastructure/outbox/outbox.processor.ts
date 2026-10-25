@@ -2,13 +2,28 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Interval } from '@nestjs/schedule';
 import { PrismaService } from '../../database/prisma.service.js';
-import { MAILER, type Mailer } from '../mailer/log.mailer.js';
+import {
+  MAILER,
+  MailDeliveryError,
+  type MailLocale,
+  type MailTemplateKey,
+  type Mailer,
+} from '../mailer/mailer.types.js';
 
 interface OutboxRow {
   id: string;
   type: string;
   attempts: number;
   payloadJson: Record<string, unknown>;
+}
+
+interface EmailPayload {
+  to?: string;
+  subject?: string;
+  text?: string;
+  template?: MailTemplateKey;
+  data?: Record<string, unknown>;
+  locale?: MailLocale;
 }
 
 const MAX_ATTEMPTS = 5;
@@ -59,6 +74,23 @@ export class OutboxProcessor {
             data: { status: 'SENT', sentAt: new Date(), lockedAt: null, lastError: null },
           });
         } catch (error) {
+          const retryable = error instanceof MailDeliveryError ? error.retryable : true;
+
+          // A permanent failure is not going to succeed on the fifth attempt
+          // either, so surface it on the first one and stop spending the budget.
+          if (!retryable) {
+            await this.prisma.outboxMessage.update({
+              where: { id: row.id },
+              data: {
+                status: 'FAILED',
+                lockedAt: null,
+                lastError: String(error).slice(0, 500),
+              },
+            });
+            this.logger.error(`Outbox delivery failed permanently for ${row.id}: ${String(error)}`);
+            continue;
+          }
+
           const attempts = row.attempts + 1;
           const failed = attempts >= MAX_ATTEMPTS;
           await this.prisma.outboxMessage.update({
@@ -85,10 +117,33 @@ export class OutboxProcessor {
       this.logger.debug(`Outbox event ${row.type} acknowledged`);
       return;
     }
-    const payload = row.payloadJson as { to?: string; subject?: string; text?: string };
-    if (!payload.to || !payload.subject) {
-      throw new Error('Email payload is missing recipient or subject');
+
+    const payload = row.payloadJson as EmailPayload;
+    if (!payload.to) {
+      throw new MailDeliveryError('PAYLOAD_INVALID', false, 'Email payload is missing recipient');
     }
+
+    // Template payloads are rendered by the mailer, so locale and escaping stay
+    // in one place. Rows written before templates existed carry a subject and a
+    // body instead and are still delivered as they are.
+    if (payload.template) {
+      await this.mailer.send({
+        to: payload.to,
+        template: payload.template,
+        data: payload.data,
+        locale: payload.locale,
+      });
+      return;
+    }
+
+    if (!payload.subject) {
+      throw new MailDeliveryError(
+        'PAYLOAD_INVALID',
+        false,
+        'Email payload has neither a template nor a subject',
+      );
+    }
+
     await this.mailer.send({
       to: payload.to,
       subject: payload.subject,

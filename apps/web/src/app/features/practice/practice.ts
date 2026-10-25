@@ -152,7 +152,7 @@ const DRAFT_KEY = 'musicos.practice-draft';
             </span>
           </div>
           <p class="mt-0.5 text-[12px] text-ink-3">{{ 'practice.draft.subtitle' | transloco }}</p>
-          <textarea
+          <textarea name="notes"
             class="mt-3 min-h-[96px] w-full rounded-xl border border-line bg-surface-2 p-3 text-[13.5px] leading-relaxed outline-none focus:border-accent"
             [placeholder]="'practice.draft.placeholder' | transloco"
             [value]="draft().text"

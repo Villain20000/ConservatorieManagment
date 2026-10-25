@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   Param,
@@ -83,6 +84,18 @@ export class DocumentsController {
   @RequirePermissions(PERMISSIONS.DOCUMENTS_WRITE)
   attachFile(@Param('id') id: string, @Body() dto: AttachDocumentFileDto) {
     return this.documents.attachFile(id, dto);
+  }
+
+  @Delete(':id')
+  @RequirePermissions(PERMISSIONS.DOCUMENTS_WRITE)
+  remove(@Param('id') id: string) {
+    return this.documents.remove(id);
+  }
+
+  @Post(':id/restore')
+  @RequirePermissions(PERMISSIONS.DOCUMENTS_WRITE)
+  restore(@Param('id') id: string) {
+    return this.documents.restore(id);
   }
 
   @Get(':id/versions')

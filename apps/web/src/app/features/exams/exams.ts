@@ -224,12 +224,12 @@ interface RowEdit {
       <form [formGroup]="createForm" class="space-y-4" (ngSubmit)="submitCreate()">
         <label class="field">
           <span class="field-label">{{ 'exams.columns.title' | transloco }}</span>
-          <input class="input" formControlName="title" maxlength="200" />
+          <input name="title" class="input" formControlName="title" maxlength="200" autocomplete="off" />
         </label>
         <div class="grid gap-3 sm:grid-cols-2">
           <label class="field">
             <span class="field-label">{{ 'exams.columns.program' | transloco }}</span>
-            <select class="select" formControlName="programId">
+            <select name="programId" class="select" formControlName="programId">
               <option value="">{{ 'exams.create.selectProgram' | transloco }}</option>
               @for (program of options()?.programs ?? []; track program.id) {
                 <option [value]="program.id">{{ program.name }}</option>
@@ -238,7 +238,7 @@ interface RowEdit {
           </label>
           <label class="field">
             <span class="field-label">{{ 'exams.columns.level' | transloco }}</span>
-            <select class="select" formControlName="levelId">
+            <select name="levelId" class="select" formControlName="levelId">
               <option value="">{{ 'exams.create.noLevel' | transloco }}</option>
               @for (level of options()?.levels ?? []; track level.id) {
                 <option [value]="level.id">{{ level.name }}</option>
@@ -247,7 +247,7 @@ interface RowEdit {
           </label>
           <label class="field">
             <span class="field-label">{{ 'exams.type' | transloco }}</span>
-            <select class="select" formControlName="type">
+            <select name="type" class="select" formControlName="type">
               @for (type of examTypes; track type) {
                 <option [value]="type">{{ ('examType.' + type) | transloco }}</option>
               }
@@ -255,7 +255,7 @@ interface RowEdit {
           </label>
           <label class="field">
             <span class="field-label">{{ 'exams.create.period' | transloco }}</span>
-            <select class="select" formControlName="periodId">
+            <select name="periodId" class="select" formControlName="periodId">
               <option value="">{{ 'exams.create.noPeriod' | transloco }}</option>
               @for (period of periods(); track period.id) {
                 <option [value]="period.id">{{ period.name }}</option>
@@ -264,20 +264,20 @@ interface RowEdit {
           </label>
           <label class="field">
             <span class="field-label">{{ 'exams.columns.date' | transloco }}</span>
-            <input class="input" type="datetime-local" formControlName="examDate" />
+            <input name="examDate" class="input" type="datetime-local" formControlName="examDate" autocomplete="off" />
           </label>
           <label class="field">
             <span class="field-label">{{ 'exams.create.gradingDeadline' | transloco }}</span>
-            <input class="input" type="datetime-local" formControlName="gradingDeadline" />
+            <input name="gradingDeadline" class="input" type="datetime-local" formControlName="gradingDeadline" autocomplete="off" />
           </label>
         </div>
         <label class="field">
           <span class="field-label">{{ 'exams.columns.location' | transloco }}</span>
-          <input class="input" formControlName="location" maxlength="200" />
+          <input name="location" class="input" formControlName="location" maxlength="200" autocomplete="off" />
         </label>
         <label class="field">
           <span class="field-label">{{ 'common.notes' | transloco }}</span>
-          <textarea class="textarea" rows="2" formControlName="notes" maxlength="2000"></textarea>
+          <textarea name="notes" class="textarea" rows="2" formControlName="notes" maxlength="2000"></textarea>
         </label>
         <div drawer-footer class="flex justify-end gap-2">
           <button type="button" class="btn-secondary" (click)="createOpen.set(false)">
@@ -400,7 +400,7 @@ interface RowEdit {
                       </div>
                     </td>
                     <td>
-                      <input
+                      <input name="grade"
                         type="number"
                         class="input w-24"
                         min="0"
@@ -408,11 +408,10 @@ interface RowEdit {
                         step="0.5"
                         [value]="editFor(row).grade"
                         [disabled]="!canGrade() || examLocked()"
-                        (input)="setGrade(row, $event)"
-                      />
+                        (input)="setGrade(row, $event)" autocomplete="off" />
                     </td>
                     <td>
-                      <select
+                      <select name="outcome"
                         class="select w-36"
                         [value]="editFor(row).outcome"
                         [disabled]="!canGrade() || examLocked()"

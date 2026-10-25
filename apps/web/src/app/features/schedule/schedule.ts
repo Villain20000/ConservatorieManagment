@@ -107,7 +107,7 @@ function isValidHex(value: string | null | undefined): value is string {
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
-          <select
+          <select name="branch"
             class="select h-9 w-auto min-w-[150px]"
             [value]="branchId()"
             [attr.aria-label]="'schedule.filters.branch' | transloco"
@@ -118,7 +118,7 @@ function isValidHex(value: string | null | undefined): value is string {
               <option [value]="branch.id">{{ branch.name }}</option>
             }
           </select>
-          <select
+          <select name="teacher"
             class="select h-9 w-auto min-w-[150px]"
             [value]="teacherId()"
             [attr.aria-label]="'schedule.filters.teacher' | transloco"
@@ -129,7 +129,7 @@ function isValidHex(value: string | null | undefined): value is string {
               <option [value]="teacher.id">{{ teacher.lastName }} {{ teacher.firstName }}</option>
             }
           </select>
-          <select
+          <select name="room"
             class="select h-9 w-auto min-w-[140px]"
             [value]="roomId()"
             [attr.aria-label]="'schedule.filters.room' | transloco"
@@ -446,7 +446,7 @@ function isValidHex(value: string | null | undefined): value is string {
 
             @if (auth.has('attendance.write')) {
               <form [formGroup]="noteForm" class="mt-3 space-y-2" (ngSubmit)="addNote()">
-                <textarea
+                <textarea name="content"
                   class="textarea min-h-20"
                   formControlName="content"
                   maxlength="2000"
@@ -502,11 +502,11 @@ function isValidHex(value: string | null | undefined): value is string {
       <form [formGroup]="rescheduleForm" class="space-y-4">
         <label class="field">
           <span class="field-label">{{ 'schedule.reschedule.startsAt' | transloco }}</span>
-          <input class="input" type="datetime-local" formControlName="startsAt" />
+          <input name="startsAt" class="input" type="datetime-local" formControlName="startsAt" autocomplete="off" />
         </label>
         <label class="field">
           <span class="field-label">{{ 'schedule.reschedule.room' | transloco }}</span>
-          <select class="select" formControlName="roomId">
+          <select name="roomId" class="select" formControlName="roomId">
             <option value="">—</option>
             @for (room of rescheduleRooms(); track room.id) {
               <option [value]="room.id">{{ room.name }}</option>
@@ -515,7 +515,7 @@ function isValidHex(value: string | null | undefined): value is string {
         </label>
         <label class="field">
           <span class="field-label">{{ 'schedule.reschedule.reason' | transloco }}</span>
-          <textarea class="textarea" formControlName="reason" maxlength="300"></textarea>
+          <textarea name="reason" class="textarea" formControlName="reason" maxlength="300"></textarea>
         </label>
       </form>
       <div drawer-footer class="flex items-center justify-end gap-2">
@@ -545,7 +545,7 @@ function isValidHex(value: string | null | undefined): value is string {
       <form [formGroup]="cancelForm" class="space-y-2">
         <label class="field">
           <span class="field-label">{{ 'schedule.cancel.reason' | transloco }}</span>
-          <textarea class="textarea" formControlName="reason" maxlength="300"></textarea>
+          <textarea name="reason" class="textarea" formControlName="reason" maxlength="300"></textarea>
           @if (cancelForm.controls.reason.touched && cancelForm.controls.reason.invalid) {
             <span class="field-error">{{ 'schedule.cancel.reasonRequired' | transloco }}</span>
           }
@@ -591,7 +591,7 @@ function isValidHex(value: string | null | undefined): value is string {
         <form [formGroup]="seriesForm" class="space-y-4" (ngSubmit)="saveSeries()">
           <label class="field">
             <span class="field-label">{{ 'schedule.form.title' | transloco }}</span>
-            <input class="input" formControlName="title" maxlength="120" autocomplete="off" />
+            <input name="title" class="input" formControlName="title" maxlength="120" autocomplete="off" />
             @if (seriesForm.controls.title.touched && seriesForm.controls.title.invalid) {
               <span class="field-error">{{ 'common.required' | transloco }}</span>
             }
@@ -600,7 +600,7 @@ function isValidHex(value: string | null | undefined): value is string {
           <div class="grid grid-cols-2 gap-3">
             <label class="field">
               <span class="field-label">{{ 'schedule.form.program' | transloco }}</span>
-              <select class="select" formControlName="programId">
+              <select name="programId" class="select" formControlName="programId">
                 <option value="">—</option>
                 @for (program of options()?.programs ?? []; track program.id) {
                   <option [value]="program.id">{{ program.name }}</option>
@@ -615,7 +615,7 @@ function isValidHex(value: string | null | undefined): value is string {
                 {{ 'schedule.form.level' | transloco }}
                 <span class="font-normal text-ink-3">({{ 'common.optional' | transloco }})</span>
               </span>
-              <select class="select" formControlName="levelId">
+              <select name="levelId" class="select" formControlName="levelId">
                 <option value="">—</option>
                 @for (level of options()?.levels ?? []; track level.id) {
                   <option [value]="level.id">{{ level.name }}</option>
@@ -627,7 +627,7 @@ function isValidHex(value: string | null | undefined): value is string {
           <div class="grid grid-cols-2 gap-3">
             <label class="field">
               <span class="field-label">{{ 'schedule.form.type' | transloco }}</span>
-              <select class="select" formControlName="type">
+              <select name="type" class="select" formControlName="type">
                 @for (type of lessonTypes; track type) {
                   <option [ngValue]="type">{{ ('lessonType.' + type) | transloco }}</option>
                 }
@@ -635,7 +635,7 @@ function isValidHex(value: string | null | undefined): value is string {
             </label>
             <label class="field">
               <span class="field-label">{{ 'schedule.form.branch' | transloco }}</span>
-              <select class="select" formControlName="branchId" (change)="onSeriesBranchChange()">
+              <select name="branchId" class="select" formControlName="branchId" (change)="onSeriesBranchChange()">
                 <option value="">—</option>
                 @for (branch of options()?.branches ?? []; track branch.id) {
                   <option [value]="branch.id">{{ branch.name }}</option>
@@ -647,7 +647,7 @@ function isValidHex(value: string | null | undefined): value is string {
           <div class="grid grid-cols-2 gap-3">
             <label class="field">
               <span class="field-label">{{ 'schedule.form.room' | transloco }}</span>
-              <select class="select" formControlName="roomId">
+              <select name="roomId" class="select" formControlName="roomId">
                 <option value="">—</option>
                 @for (room of roomsForBranch(seriesForm.controls.branchId.value); track room.id) {
                   <option [value]="room.id">{{ room.name }}</option>
@@ -659,7 +659,7 @@ function isValidHex(value: string | null | undefined): value is string {
             </label>
             <label class="field">
               <span class="field-label">{{ 'schedule.form.teacher' | transloco }}</span>
-              <select class="select" formControlName="teacherId">
+              <select name="teacherId" class="select" formControlName="teacherId">
                 <option value="">—</option>
                 @for (teacher of options()?.teachers ?? []; track teacher.id) {
                   <option [value]="teacher.id">{{ teacher.lastName }} {{ teacher.firstName }}</option>
@@ -671,7 +671,7 @@ function isValidHex(value: string | null | undefined): value is string {
           <div class="grid grid-cols-2 gap-3">
             <label class="field">
               <span class="field-label">{{ 'schedule.form.weekday' | transloco }}</span>
-              <select class="select" formControlName="weekday">
+              <select name="weekday" class="select" formControlName="weekday">
                 @for (day of weekdays; track day) {
                   <option [ngValue]="day">{{ ('weekday.' + day) | transloco }}</option>
                 }
@@ -679,14 +679,14 @@ function isValidHex(value: string | null | undefined): value is string {
             </label>
             <label class="field">
               <span class="field-label">{{ 'schedule.form.startTime' | transloco }}</span>
-              <input class="input" type="time" formControlName="startTime" />
+              <input name="startTime" class="input" type="time" formControlName="startTime" autocomplete="off" />
             </label>
           </div>
 
           <div class="grid grid-cols-2 gap-3">
             <label class="field">
               <span class="field-label">{{ 'schedule.form.duration' | transloco }}</span>
-              <select class="select" formControlName="durationMinutes">
+              <select name="durationMinutes" class="select" formControlName="durationMinutes">
                 @for (duration of durations; track duration) {
                   <option [ngValue]="duration">{{ duration }} {{ 'common.minutes' | transloco }}</option>
                 }
@@ -694,7 +694,7 @@ function isValidHex(value: string | null | undefined): value is string {
             </label>
             <label class="field">
               <span class="field-label">{{ 'common.status' | transloco }}</span>
-              <select class="select" formControlName="status">
+              <select name="status" class="select" formControlName="status">
                 @for (status of seriesStatuses; track status) {
                   <option [ngValue]="status">{{ ('status.' + status) | transloco }}</option>
                 }
@@ -705,18 +705,18 @@ function isValidHex(value: string | null | undefined): value is string {
           <div class="grid grid-cols-2 gap-3">
             <label class="field">
               <span class="field-label">{{ 'schedule.form.validFrom' | transloco }}</span>
-              <input class="input" type="date" formControlName="validFrom" />
+              <input name="validFrom" class="input" type="date" formControlName="validFrom" autocomplete="off" />
             </label>
             <label class="field">
               <span class="field-label">{{ 'schedule.form.validTo' | transloco }}</span>
-              <input class="input" type="date" formControlName="validTo" />
+              <input name="validTo" class="input" type="date" formControlName="validTo" autocomplete="off" />
             </label>
           </div>
 
           <div class="field">
             <span class="field-label">{{ 'schedule.form.students' | transloco }}</span>
             <p class="field-hint">{{ 'schedule.form.studentsHint' | transloco }}</p>
-            <input
+            <input name="studentSearch"
               class="input"
               [value]="studentQuery()"
               [placeholder]="'schedule.form.searchStudents' | transloco"

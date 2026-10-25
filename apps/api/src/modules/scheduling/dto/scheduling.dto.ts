@@ -7,11 +7,15 @@ import {
   IsMilitaryTime,
   IsOptional,
   IsString,
+  IsUUID,
+  Matches,
   Max,
   MaxLength,
   Min,
+  MinLength,
 } from 'class-validator';
 import {
+  CalendarDayKind,
   LessonStatus,
   LessonType,
   SeriesStatus,
@@ -243,4 +247,36 @@ export class ConflictCheckDto {
   @IsOptional()
   @IsString()
   excludeSeriesId?: string;
+}
+
+/** ISO calendar date (`yyyy-MM-dd`) — stored as `DATE`, never shifted by a zone. */
+export class CalendarDayQueryDto {
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  from?: string;
+
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  to?: string;
+
+  @IsOptional()
+  @IsUUID()
+  branchId?: string;
+}
+
+export class CalendarDayInputDto {
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { message: 'Η ημερομηνία πρέπει να έχει μορφή ΕΕ-Μ-Η' })
+  date!: string;
+
+  @IsEnum(CalendarDayKind)
+  kind!: CalendarDayKind;
+
+  @IsString()
+  @MinLength(2)
+  @MaxLength(120)
+  name!: string;
+
+  @IsOptional()
+  @IsUUID()
+  branchId?: string | null;
 }

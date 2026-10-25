@@ -450,14 +450,14 @@ const DEFAULT_COLOR = '#b9893d';
           <form [formGroup]="programForm" class="space-y-4" (ngSubmit)="saveCurrent()">
             <label class="field">
               <span class="field-label">{{ 'academics.fields.name' | transloco }}</span>
-              <input class="input" formControlName="name" maxlength="100" autocomplete="off" />
+              <input name="name" class="input" formControlName="name" maxlength="100" autocomplete="off" />
               @if (programForm.controls.name.touched && programForm.controls.name.invalid) {
                 <span class="field-error">{{ 'common.required' | transloco }}</span>
               }
             </label>
             <label class="field">
               <span class="field-label">{{ 'academics.fields.code' | transloco }}</span>
-              <input class="input font-mono" formControlName="code" maxlength="20" autocomplete="off" />
+              <input name="code" class="input font-mono" formControlName="code" maxlength="20" autocomplete="off" />
               @if (programForm.controls.code.touched && programForm.controls.code.invalid) {
                 <span class="field-error">{{ 'common.required' | transloco }}</span>
               }
@@ -465,17 +465,16 @@ const DEFAULT_COLOR = '#b9893d';
             <div class="field">
               <span class="field-label">{{ 'academics.fields.color' | transloco }}</span>
               <div class="flex items-center gap-3">
-                <input
+                <input name="color"
                   type="color"
                   formControlName="color"
                   class="h-10 w-16 cursor-pointer rounded-lg border border-line bg-surface p-1"
-                  aria-label="color"
-                />
+                  aria-label="color" autocomplete="off" />
                 <span class="font-mono text-[12px] text-ink-3">{{ programForm.controls.color.value }}</span>
               </div>
             </div>
             <label class="flex cursor-pointer items-center gap-2.5 text-sm text-ink-2">
-              <input type="checkbox" formControlName="isActive" class="h-4 w-4 accent-[var(--accent)]" />
+              <input name="isActive" type="checkbox" formControlName="isActive" class="h-4 w-4 accent-[var(--accent)]" autocomplete="off" />
               {{ 'academics.fields.isActive' | transloco }}
             </label>
           </form>
@@ -485,20 +484,20 @@ const DEFAULT_COLOR = '#b9893d';
           <form [formGroup]="levelForm" class="space-y-4" (ngSubmit)="saveCurrent()">
             <label class="field">
               <span class="field-label">{{ 'academics.fields.name' | transloco }}</span>
-              <input class="input" formControlName="name" maxlength="80" autocomplete="off" />
+              <input name="name" class="input" formControlName="name" maxlength="80" autocomplete="off" />
               @if (levelForm.controls.name.touched && levelForm.controls.name.invalid) {
                 <span class="field-error">{{ 'common.required' | transloco }}</span>
               }
             </label>
             <label class="field">
               <span class="field-label">{{ 'academics.fields.sortOrder' | transloco }}</span>
-              <input class="input" type="number" min="0" step="1" formControlName="sortOrder" />
+              <input name="sortOrder" class="input" type="number" min="0" step="1" formControlName="sortOrder" autocomplete="off" />
               @if (levelForm.controls.sortOrder.touched && levelForm.controls.sortOrder.invalid) {
                 <span class="field-error">{{ 'common.required' | transloco }}</span>
               }
             </label>
             <label class="flex cursor-pointer items-center gap-2.5 text-sm text-ink-2">
-              <input type="checkbox" formControlName="isActive" class="h-4 w-4 accent-[var(--accent)]" />
+              <input name="isActive" type="checkbox" formControlName="isActive" class="h-4 w-4 accent-[var(--accent)]" autocomplete="off" />
               {{ 'academics.fields.isActive' | transloco }}
             </label>
           </form>
@@ -508,7 +507,7 @@ const DEFAULT_COLOR = '#b9893d';
           <form [formGroup]="yearForm" class="space-y-4" (ngSubmit)="saveCurrent()">
             <label class="field">
               <span class="field-label">{{ 'academics.fields.name' | transloco }}</span>
-              <input class="input" formControlName="name" maxlength="60" autocomplete="off" />
+              <input name="name" class="input" formControlName="name" maxlength="60" autocomplete="off" />
               @if (yearForm.controls.name.touched && yearForm.controls.name.invalid) {
                 <span class="field-error">{{ 'common.required' | transloco }}</span>
               }
@@ -516,15 +515,15 @@ const DEFAULT_COLOR = '#b9893d';
             <div class="grid grid-cols-2 gap-3">
               <label class="field">
                 <span class="field-label">{{ 'academics.fields.startsOn' | transloco }}</span>
-                <input class="input" type="date" formControlName="startsOn" />
+                <input name="startsOn" class="input" type="date" formControlName="startsOn" autocomplete="off" />
               </label>
               <label class="field">
                 <span class="field-label">{{ 'academics.fields.endsOn' | transloco }}</span>
-                <input class="input" type="date" formControlName="endsOn" />
+                <input name="endsOn" class="input" type="date" formControlName="endsOn" autocomplete="off" />
               </label>
             </div>
             <label class="flex cursor-pointer items-center gap-2.5 text-sm text-ink-2">
-              <input type="checkbox" formControlName="isActive" class="h-4 w-4 accent-[var(--accent)]" />
+              <input name="isActive" type="checkbox" formControlName="isActive" class="h-4 w-4 accent-[var(--accent)]" autocomplete="off" />
               {{ 'academics.fields.activeYear' | transloco }}
             </label>
           </form>
@@ -534,30 +533,30 @@ const DEFAULT_COLOR = '#b9893d';
           <form [formGroup]="branchForm" class="space-y-4" (ngSubmit)="saveCurrent()">
             <label class="field">
               <span class="field-label">{{ 'academics.fields.name' | transloco }}</span>
-              <input class="input" formControlName="name" maxlength="120" autocomplete="off" />
+              <input name="name" class="input" formControlName="name" maxlength="120" autocomplete="off" />
               @if (branchForm.controls.name.touched && branchForm.controls.name.invalid) {
                 <span class="field-error">{{ 'common.required' | transloco }}</span>
               }
             </label>
             <label class="field">
               <span class="field-label">{{ 'academics.fields.code' | transloco }}</span>
-              <input class="input font-mono" formControlName="code" maxlength="20" autocomplete="off" />
+              <input name="code" class="input font-mono" formControlName="code" maxlength="20" autocomplete="off" />
               @if (branchForm.controls.code.touched && branchForm.controls.code.invalid) {
                 <span class="field-error">{{ 'common.required' | transloco }}</span>
               }
             </label>
             <label class="field">
               <span class="field-label">{{ 'academics.fields.address' | transloco }}</span>
-              <input class="input" formControlName="address" maxlength="160" autocomplete="off" />
+              <input name="address" class="input" formControlName="address" maxlength="160" autocomplete="off" />
             </label>
             <div class="grid grid-cols-2 gap-3">
               <label class="field">
                 <span class="field-label">{{ 'academics.fields.city' | transloco }}</span>
-                <input class="input" formControlName="city" maxlength="80" autocomplete="off" />
+                <input name="city" class="input" formControlName="city" maxlength="80" autocomplete="off" />
               </label>
               <label class="field">
                 <span class="field-label">{{ 'academics.fields.phone' | transloco }}</span>
-                <input class="input" formControlName="phone" maxlength="30" autocomplete="off" />
+                <input name="phone" class="input" formControlName="phone" maxlength="30" autocomplete="off" />
               </label>
             </div>
           </form>
@@ -567,14 +566,14 @@ const DEFAULT_COLOR = '#b9893d';
           <form [formGroup]="roomForm" class="space-y-4" (ngSubmit)="saveCurrent()">
             <label class="field">
               <span class="field-label">{{ 'academics.fields.name' | transloco }}</span>
-              <input class="input" formControlName="name" maxlength="80" autocomplete="off" />
+              <input name="name" class="input" formControlName="name" maxlength="80" autocomplete="off" />
               @if (roomForm.controls.name.touched && roomForm.controls.name.invalid) {
                 <span class="field-error">{{ 'common.required' | transloco }}</span>
               }
             </label>
             <label class="field">
               <span class="field-label">{{ 'academics.fields.branch' | transloco }}</span>
-              <select class="select" formControlName="branchId">
+              <select name="branchId" class="select" formControlName="branchId">
                 <option value="">—</option>
                 @for (branch of branches(); track branch.id) {
                   <option [value]="branch.id">{{ branch.name }}</option>
@@ -586,10 +585,10 @@ const DEFAULT_COLOR = '#b9893d';
             </label>
             <label class="field">
               <span class="field-label">{{ 'academics.fields.capacity' | transloco }}</span>
-              <input class="input" type="number" min="1" step="1" formControlName="capacity" />
+              <input name="capacity" class="input" type="number" min="1" step="1" formControlName="capacity" autocomplete="off" />
             </label>
             <label class="flex cursor-pointer items-center gap-2.5 text-sm text-ink-2">
-              <input type="checkbox" formControlName="isActive" class="h-4 w-4 accent-[var(--accent)]" />
+              <input name="isActive" type="checkbox" formControlName="isActive" class="h-4 w-4 accent-[var(--accent)]" autocomplete="off" />
               {{ 'academics.fields.isActive' | transloco }}
             </label>
           </form>

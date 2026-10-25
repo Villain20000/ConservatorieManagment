@@ -145,9 +145,34 @@ export class AnnouncementsService {
         tenantId: this.ctx.tenantId,
       },
     });
+    // Rewritten to a soft delete by the Prisma extension, so the row is recoverable.
     await this.prisma.announcement.delete({ where: { id } });
     await this.audit.record('announcement.deleted', 'Announcement', id);
     return { success: true };
+  }
+
+  async restore(id: string) {
+    const existing = await this.prisma.announcement.findFirst({
+      where: { id, tenantId: this.ctx.tenantId, deletedAt: { not: null } },
+    });
+    if (!existing) throw new NotFoundException('Η ανακοίνωση δεν βρέθηκε');
+
+    const restored = await this.prisma.announcement.update({
+      where: { id },
+      data: { deletedAt: null, deletedById: null },
+      include: announcementInclude,
+    });
+
+    // Fan-out is idempotent per announcement, so restoring re-notifies exactly once.
+    await this.notifications.fanOutAnnouncement({
+      id: restored.id,
+      title: restored.title,
+      body: restored.body,
+      branchId: restored.branchId,
+      audienceRoles: restored.audienceRoles,
+    });
+    await this.audit.record('announcement.restored', 'Announcement', id);
+    return restored;
   }
 
   private async requireAnnouncement(id: string) {

@@ -280,45 +280,45 @@ interface TeacherPayload {
         <div class="grid gap-4 sm:grid-cols-2">
           <label class="field">
             <span class="field-label">{{ 'teachers.form.firstName' | transloco }}</span>
-            <input class="input" formControlName="firstName" />
+            <input name="firstName" class="input" formControlName="firstName" autocomplete="off" />
             @if (form.controls.firstName.invalid && form.controls.firstName.touched) {
               <span class="field-error">{{ 'common.required' | transloco }}</span>
             }
           </label>
           <label class="field">
             <span class="field-label">{{ 'teachers.form.lastName' | transloco }}</span>
-            <input class="input" formControlName="lastName" />
+            <input name="lastName" class="input" formControlName="lastName" autocomplete="off" />
             @if (form.controls.lastName.invalid && form.controls.lastName.touched) {
               <span class="field-error">{{ 'common.required' | transloco }}</span>
             }
           </label>
           <label class="field">
             <span class="field-label">{{ 'teachers.form.email' | transloco }}</span>
-            <input class="input" type="email" formControlName="email" />
+            <input name="email" class="input" type="email" formControlName="email" autocomplete="off" />
             @if (form.controls.email.invalid && form.controls.email.touched) {
               <span class="field-error">{{ 'common.invalidEmail' | transloco }}</span>
             }
           </label>
           <label class="field">
             <span class="field-label">{{ 'teachers.form.phone' | transloco }}</span>
-            <input class="input" type="tel" formControlName="phone" />
+            <input name="phone" class="input" type="tel" formControlName="phone" autocomplete="off" />
           </label>
           <label class="field">
             <span class="field-label">{{ 'teachers.form.employeeNo' | transloco }}</span>
-            <input class="input" formControlName="employeeNo" />
+            <input name="employeeNo" class="input" formControlName="employeeNo" autocomplete="off" />
           </label>
           <label class="field">
             <span class="field-label">{{ 'teachers.form.title' | transloco }}</span>
-            <input class="input" formControlName="title" />
+            <input name="title" class="input" formControlName="title" autocomplete="off" />
           </label>
           <label class="field sm:col-span-2">
             <span class="field-label">{{ 'teachers.form.specialties' | transloco }}</span>
-            <input class="input" formControlName="specialties" />
+            <input name="specialties" class="input" formControlName="specialties" autocomplete="off" />
             <span class="field-hint">{{ 'teachers.form.specialtiesHint' | transloco }}</span>
           </label>
           <label class="field">
             <span class="field-label">{{ 'teachers.form.status' | transloco }}</span>
-            <select class="select" formControlName="status">
+            <select name="status" class="select" formControlName="status">
               @for (option of statuses; track option) {
                 <option [value]="option">{{ 'status.' + option | transloco }}</option>
               }
@@ -326,7 +326,7 @@ interface TeacherPayload {
           </label>
           <label class="field sm:col-span-2">
             <span class="field-label">{{ 'teachers.form.bio' | transloco }}</span>
-            <textarea class="textarea" formControlName="bio" rows="4"></textarea>
+            <textarea name="bio" class="textarea" formControlName="bio" rows="4"></textarea>
           </label>
         </div>
       </form>

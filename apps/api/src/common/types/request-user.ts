@@ -11,4 +11,8 @@ export interface RequestUser {
   branchId?: string | null;
   role?: Role;
   permissions: string[];
+  /** True when the account has TOTP enrolled. */
+  mfaEnabled?: boolean;
+  /** True when enforcement is on but the account has not enrolled yet. */
+  mfaPendingEnrolment?: boolean;
 }

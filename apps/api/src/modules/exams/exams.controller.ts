@@ -1,6 +1,7 @@
 import { Body, Controller, Get, HttpCode, Param, Patch, Post, Put, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator.js';
+import { RequiresFeature } from '../../common/decorators/require-feature.decorator.js';
 import { PERMISSIONS } from '../../common/permissions.js';
 import {
   CreateExamApplicationDto,
@@ -16,6 +17,7 @@ import { ExamsService } from './exams.service.js';
 
 @ApiTags('exams')
 @ApiBearerAuth()
+@RequiresFeature('exams')
 @Controller('exams')
 export class ExamsController {
   constructor(private readonly exams: ExamsService) {}

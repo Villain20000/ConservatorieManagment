@@ -60,16 +60,15 @@ interface CreateStudentPayload {
             <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3">
               <app-icon name="search" [size]="15" />
             </span>
-            <input
+            <input name="search"
               type="search"
               class="input pl-9"
               [value]="search()"
               [placeholder]="'students.searchPlaceholder' | transloco"
               (input)="onSearchInput($event)"
-              (keydown.enter)="onSearchEnter()"
-            />
+              (keydown.enter)="onSearchEnter()" autocomplete="off" />
           </div>
-          <select
+          <select name="branch"
             class="select"
             [value]="branchId()"
             (change)="onBranchChange($event)"
@@ -80,7 +79,7 @@ interface CreateStudentPayload {
               <option [value]="branch.id">{{ branch.name }}</option>
             }
           </select>
-          <select
+          <select name="program"
             class="select"
             [value]="programId()"
             (change)="onProgramChange($event)"
@@ -91,7 +90,7 @@ interface CreateStudentPayload {
               <option [value]="program.id">{{ program.name }}</option>
             }
           </select>
-          <select
+          <select name="status"
             class="select"
             [value]="status()"
             (change)="onStatusChange($event)"
@@ -313,21 +312,21 @@ interface CreateStudentPayload {
         <div class="grid gap-4 sm:grid-cols-2">
           <label class="field">
             <span class="field-label">{{ 'students.form.firstName' | transloco }}</span>
-            <input class="input" formControlName="firstName" autocomplete="given-name" />
+            <input name="firstName" class="input" formControlName="firstName" autocomplete="given-name" />
             @if (form.controls.firstName.invalid && form.controls.firstName.touched) {
               <span class="field-error">{{ 'common.required' | transloco }}</span>
             }
           </label>
           <label class="field">
             <span class="field-label">{{ 'students.form.lastName' | transloco }}</span>
-            <input class="input" formControlName="lastName" autocomplete="family-name" />
+            <input name="lastName" class="input" formControlName="lastName" autocomplete="family-name" />
             @if (form.controls.lastName.invalid && form.controls.lastName.touched) {
               <span class="field-error">{{ 'common.required' | transloco }}</span>
             }
           </label>
           <label class="field">
             <span class="field-label">{{ 'students.form.branch' | transloco }}</span>
-            <select class="select" formControlName="branchId">
+            <select name="branchId" class="select" formControlName="branchId">
               <option value="">{{ 'common.none' | transloco }}</option>
               @for (branch of options()?.branches ?? []; track branch.id) {
                 <option [value]="branch.id">{{ branch.name }}</option>
@@ -339,16 +338,16 @@ interface CreateStudentPayload {
           </label>
           <label class="field">
             <span class="field-label">{{ 'students.form.registrationNumber' | transloco }}</span>
-            <input class="input" formControlName="registrationNumber" />
+            <input name="registrationNumber" class="input" formControlName="registrationNumber" autocomplete="off" />
             <span class="field-hint">{{ 'students.form.registrationHint' | transloco }}</span>
           </label>
           <label class="field">
             <span class="field-label">{{ 'students.form.birthDate' | transloco }}</span>
-            <input class="input" type="date" formControlName="birthDate" />
+            <input name="birthDate" class="input" type="date" formControlName="birthDate" autocomplete="off" />
           </label>
           <label class="field">
             <span class="field-label">{{ 'students.form.gender' | transloco }}</span>
-            <select class="select" formControlName="gender">
+            <select name="gender" class="select" formControlName="gender">
               <option value="">{{ 'common.none' | transloco }}</option>
               <option value="male">{{ 'students.form.male' | transloco }}</option>
               <option value="female">{{ 'students.form.female' | transloco }}</option>
@@ -357,26 +356,26 @@ interface CreateStudentPayload {
           </label>
           <label class="field">
             <span class="field-label">{{ 'students.form.email' | transloco }}</span>
-            <input class="input" type="email" formControlName="email" autocomplete="email" />
+            <input name="email" class="input" type="email" formControlName="email" autocomplete="email" />
             @if (form.controls.email.invalid && form.controls.email.touched) {
               <span class="field-error">{{ 'common.invalidEmail' | transloco }}</span>
             }
           </label>
           <label class="field">
             <span class="field-label">{{ 'students.form.phone' | transloco }}</span>
-            <input class="input" type="tel" formControlName="phone" autocomplete="tel" />
+            <input name="phone" class="input" type="tel" formControlName="phone" autocomplete="tel" />
           </label>
           <label class="field">
             <span class="field-label">{{ 'students.form.address' | transloco }}</span>
-            <input class="input" formControlName="address" autocomplete="street-address" />
+            <input name="address" class="input" formControlName="address" autocomplete="street-address" />
           </label>
           <label class="field">
             <span class="field-label">{{ 'students.form.city' | transloco }}</span>
-            <input class="input" formControlName="city" />
+            <input name="city" class="input" formControlName="city" autocomplete="off" />
           </label>
           <label class="field">
             <span class="field-label">{{ 'students.form.status' | transloco }}</span>
-            <select class="select" formControlName="status">
+            <select name="status" class="select" formControlName="status">
               @for (option of statuses; track option) {
                 <option [value]="option">{{ 'status.' + option | transloco }}</option>
               }
@@ -386,26 +385,24 @@ interface CreateStudentPayload {
 
         <label class="field">
           <span class="field-label">{{ 'students.form.notes' | transloco }}</span>
-          <textarea class="textarea" formControlName="notes" rows="3"></textarea>
+          <textarea name="notes" class="textarea" formControlName="notes" rows="3"></textarea>
         </label>
 
         <div class="divider"></div>
 
         <div class="space-y-3">
           <label class="flex items-start gap-2.5 text-[13px] text-ink-2">
-            <input
+            <input name="consentData"
               type="checkbox"
               formControlName="consentData"
-              class="mt-0.5 h-4 w-4 rounded border-line accent-[var(--accent)]"
-            />
+              class="mt-0.5 h-4 w-4 rounded border-line accent-[var(--accent)]" autocomplete="off" />
             <span>{{ 'students.form.consentData' | transloco }}</span>
           </label>
           <label class="flex items-start gap-2.5 text-[13px] text-ink-2">
-            <input
+            <input name="consentMedia"
               type="checkbox"
               formControlName="consentMedia"
-              class="mt-0.5 h-4 w-4 rounded border-line accent-[var(--accent)]"
-            />
+              class="mt-0.5 h-4 w-4 rounded border-line accent-[var(--accent)]" autocomplete="off" />
             <span>{{ 'students.form.consentMedia' | transloco }}</span>
           </label>
         </div>

@@ -17,5 +17,14 @@ services:
       timeout: 3s
       retries: 20
 
+  mail:
+    image: axllent/mailpit:latest
+    container_name: musicos-mail
+    restart: unless-stopped
+    profiles: ["mail"]
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
 volumes:
   musicos_pgdata:

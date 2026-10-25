@@ -1,8 +1,8 @@
 import { ChangeDetectionStrategy, Component, inject, isDevMode, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslocoPipe } from '@jsverse/transloco';
-import { AuthService } from '../../core/auth.service';
+import { AuthService, isMfaChallenge, MFA_CHALLENGE_KEY } from '../../core/auth.service';
 import { homeRouteFor } from '../../core/guards';
 import { LanguageService } from '../../core/language.service';
 import { ThemeService } from '../../core/theme.service';
@@ -21,7 +21,7 @@ interface DemoAccount {
 
 @Component({
   selector: 'app-login',
-  imports: [ReactiveFormsModule, TranslocoPipe, IconComponent, StatusBadgeComponent],
+  imports: [ReactiveFormsModule, TranslocoPipe, IconComponent, StatusBadgeComponent, RouterLink],
   template: `
     <div class="grid min-h-screen bg-canvas lg:grid-cols-[1.05fr_1fr]">
       <section
@@ -256,6 +256,11 @@ interface DemoAccount {
                     @if (passwordControl.touched && passwordControl.hasError('required')) {
                       <p class="field-error">{{ 'auth.passwordRequired' | transloco }}</p>
                     }
+                    <div class="mt-2 text-right">
+                      <a routerLink="/forgot-password" class="link text-xs">
+                        {{ 'auth.forgot.title' | transloco }}
+                      </a>
+                    </div>
                   </div>
 
                   @if (errorKey(); as error) {
@@ -460,10 +465,20 @@ export class LoginPage {
     const { email, password } = this.form.getRawValue();
     this.loading.set(true);
     try {
-      const session = await this.auth.login(email.trim(), password);
+      const result = await this.auth.login(email.trim(), password);
+
+      if (isMfaChallenge(result)) {
+        sessionStorage.setItem(
+          MFA_CHALLENGE_KEY,
+          JSON.stringify({ challengeToken: result.challengeToken, expiresAt: result.expiresAt }),
+        );
+        await this.router.navigate(['/mfa']);
+        return;
+      }
+
       if (
-        session.requiresTenantSelection ||
-        (!session.activeTenant && session.memberships.length > 0)
+        result.requiresTenantSelection ||
+        (!result.activeTenant && result.memberships.length > 0)
       ) {
         this.mode.set('tenant');
         return;

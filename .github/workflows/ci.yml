@@ -19,6 +19,15 @@ env:
   ACCESS_TOKEN_TTL: 15m
   REFRESH_TOKEN_DAYS: 7
   COOKIE_SECURE: 'false'
+  # No SMTP server in CI: mail is logged, the outbox still drains to SENT, so
+  # every delivery assertion keeps working without an external service.
+  SMTP_URL: ''
+  APP_PUBLIC_WEB_URL: http://localhost:4200
+  # Seeded privileged accounts have no TOTP secret, so enforcement stays off and
+  # the MFA spec exercises enrolment explicitly instead.
+  MFA_ENFORCE_PRIVILEGED: 'false'
+  LOG_FORMAT: json
+  LOG_LEVEL: warn
 
 jobs:
   verify:

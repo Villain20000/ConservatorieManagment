@@ -183,8 +183,10 @@ const AUDIENCE_ROLES: Role[] = ['STUDENT', 'GUARDIAN', 'TEACHER', 'ADMINISTRATOR
           <label class="field-label" for="announcement-title">{{ 'announcements.form.title' | transloco }}</label>
           <input
             id="announcement-title"
+            name="title"
             type="text"
             class="input"
+            autocomplete="off"
             formControlName="title"
             [placeholder]="'announcements.form.titlePlaceholder' | transloco"
             maxlength="160"
@@ -215,12 +217,11 @@ const AUDIENCE_ROLES: Role[] = ['STUDENT', 'GUARDIAN', 'TEACHER', 'ADMINISTRATOR
               <label
                 class="flex cursor-pointer items-center gap-2.5 rounded-xl border border-line bg-surface-2 px-3 py-2.5 text-[13px] text-ink-2 transition-colors hover:border-line-strong"
               >
-                <input
+                <input name="audience"
                   type="checkbox"
                   class="h-4 w-4 rounded border-line text-accent focus:ring-accent/30"
                   [checked]="hasAudience(role)"
-                  (change)="onAudienceChange(role, $event)"
-                />
+                  (change)="onAudienceChange(role, $event)" autocomplete="off" />
                 {{ ('announcements.audiences.' + role) | transloco }}
               </label>
             }
@@ -245,11 +246,10 @@ const AUDIENCE_ROLES: Role[] = ['STUDENT', 'GUARDIAN', 'TEACHER', 'ADMINISTRATOR
         <label
           class="flex cursor-pointer items-center gap-2.5 rounded-xl border border-line bg-surface-2 px-3 py-2.5 text-[13px] font-medium text-ink-2"
         >
-          <input
+          <input name="isPinned"
             type="checkbox"
             class="h-4 w-4 rounded border-line text-accent focus:ring-accent/30"
-            formControlName="isPinned"
-          />
+            formControlName="isPinned" autocomplete="off" />
           <app-icon name="pin" [size]="14" />
           {{ 'announcements.form.pinned' | transloco }}
         </label>

@@ -5,6 +5,7 @@ import { TranslocoPipe } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../core/api.service';
 import { AuthService } from '../core/auth.service';
+import { EntitlementsService } from '../core/entitlements.service';
 import { FormatService } from '../core/format.service';
 import { LanguageService } from '../core/language.service';
 import { navSectionsFor } from '../core/nav';
@@ -226,13 +227,14 @@ import { IconComponent } from '../shared/ui/icon';
                   class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3"
                 />
                 <input
+                  id="global-search"
+                  name="search"
                   type="search"
                   class="input h-9 pl-9"
                   [value]="searchTerm()"
                   (input)="onSearchInput($event)"
                   [placeholder]="'common.searchPlaceholder' | transloco"
-                  [attr.aria-label]="'common.search' | transloco"
-                />
+                  [attr.aria-label]="'common.search' | transloco" autocomplete="off" />
               </div>
             </form>
           }
@@ -284,6 +286,36 @@ import { IconComponent } from '../shared/ui/icon';
             </button>
           </div>
         </header>
+
+        @if (entitlements.isSuspended()) {
+          <div class="border-b border-danger/30 bg-danger-soft px-4 py-3 lg:px-8" role="alert">
+            <div class="mx-auto flex max-w-[1600px] items-start gap-3">
+              <app-icon name="alert" [size]="16" class="mt-0.5 text-danger" />
+              <div class="text-[12.5px] leading-relaxed">
+                <p class="font-semibold text-ink">{{ 'entitlements.suspended' | transloco }}</p>
+                <p class="text-ink-2">{{ 'entitlements.suspendedHint' | transloco }}</p>
+              </div>
+            </div>
+          </div>
+        } @else if (entitlements.state() === 'TRIAL_EXPIRED') {
+          <div class="border-b border-danger/30 bg-danger-soft px-4 py-3 lg:px-8" role="status">
+            <div class="mx-auto flex max-w-[1600px] items-start gap-3">
+              <app-icon name="alert" [size]="16" class="mt-0.5 text-danger" />
+              <p class="text-[12.5px] font-semibold text-ink">
+                {{ 'entitlements.trialExpired' | transloco }}
+              </p>
+            </div>
+          </div>
+        } @else if (entitlements.state() === 'TRIAL' && (entitlements.trialDaysLeft() ?? 99) <= 14) {
+          <div class="border-b border-warning/30 bg-warning-soft px-4 py-3 lg:px-8" role="status">
+            <div class="mx-auto flex max-w-[1600px] items-start gap-3">
+              <app-icon name="clock" [size]="16" class="mt-0.5 text-warning" />
+              <p class="text-[12.5px] font-semibold text-ink">
+                {{ 'entitlements.trialLeft' | transloco: { count: entitlements.trialDaysLeft() } }}
+              </p>
+            </div>
+          </div>
+        }
 
         <main class="page py-6 lg:py-8">
           <router-outlet />
@@ -391,6 +423,7 @@ export class AppShell {
   readonly language = inject(LanguageService);
   readonly theme = inject(ThemeService);
   readonly format = inject(FormatService);
+  readonly entitlements = inject(EntitlementsService);
   private readonly api = inject(ApiService);
   private readonly router = inject(Router);
 
@@ -406,7 +439,11 @@ export class AppShell {
   readonly searchTerm = signal('');
 
   readonly sections = computed(() =>
-    navSectionsFor(this.auth.role(), (permission) => this.auth.has(permission)),
+    navSectionsFor(
+      this.auth.role(),
+      (permission) => this.auth.has(permission),
+      (feature) => this.entitlements.has(feature),
+    ),
   );
   readonly canSwitchTenant = computed(() => this.auth.memberships().length > 1);
   readonly tenantName = computed(() => this.auth.activeTenant()?.tenant.name ?? '');
@@ -420,6 +457,9 @@ export class AppShell {
 
   constructor() {
     void this.loadNotifications();
+    // Tenant plan state drives the banner and feature visibility. A platform
+    // admin has no tenant, in which case the service resolves to null.
+    void this.entitlements.load();
 
     this.router.events.pipe(takeUntilDestroyed()).subscribe((event) => {
       if (event instanceof NavigationEnd) {

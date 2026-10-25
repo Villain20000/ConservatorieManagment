@@ -1,6 +1,8 @@
 import { Global, Module } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
-import { LogMailer, MAILER } from './mailer/log.mailer.js';
+import { createMailer } from './mailer/mailer.factory.js';
+import { MAILER } from './mailer/mailer.types.js';
 import { NumberingService } from './numbering/numbering.service.js';
 import { OutboxProcessor } from './outbox/outbox.processor.js';
 import { OutboxService } from './outbox/outbox.service.js';
@@ -24,7 +26,7 @@ import { LocalDiskStorage, OBJECT_STORAGE } from './storage/local-disk.storage.j
     LocalInvoiceProvider,
     LocalSignatureProvider,
     { provide: OBJECT_STORAGE, useClass: LocalDiskStorage },
-    { provide: MAILER, useClass: LogMailer },
+    { provide: MAILER, inject: [ConfigService], useFactory: createMailer },
   ],
   exports: [
     NumberingService,

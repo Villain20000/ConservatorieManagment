@@ -18,7 +18,7 @@ function createService(options: {
   childIds?: string[];
   assertAccessible?: (studentId: string) => Promise<void>;
   studentId?: string | null;
-} = {}) {
+} = { isGuardian: false }) {
   const { isGuardian, childIds = [CHILD_ID] } = options;
   const prisma = {
     student: { findFirst: vi.fn().mockResolvedValue(studentRow) },

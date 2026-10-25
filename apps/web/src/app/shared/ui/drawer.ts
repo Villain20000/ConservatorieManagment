@@ -67,6 +67,7 @@ const SIZES: Record<DrawerSize, string> = {
   `,
   host: {
     '(document:keydown.escape)': 'onEscape()',
+    '[attr.title]': 'null',
   },
   changeDetection: ChangeDetectionStrategy.OnPush,
 })

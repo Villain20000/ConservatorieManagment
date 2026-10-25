@@ -18,15 +18,14 @@ import { TranslocoPipe } from '@jsverse/transloco';
       <p class="text-center text-[11px] font-medium uppercase tracking-[0.14em] text-ink-3">
         {{ 'practice.metronome.bpm' | transloco }}
       </p>
-      <input
+      <input name="bpm"
         type="range"
         min="40"
         max="208"
         [value]="bpm()"
         (input)="setBpm($any($event.target).value)"
         class="mt-2 w-full accent-[#b9893d]"
-        [attr.aria-label]="'practice.metronome.bpm' | transloco"
-      />
+        [attr.aria-label]="'practice.metronome.bpm' | transloco" autocomplete="off" />
       <div class="mt-1 flex items-center justify-center gap-1.5">
         <button type="button" class="btn btn-secondary btn-icon" (click)="nudge(-1)" aria-label="-1">
           −

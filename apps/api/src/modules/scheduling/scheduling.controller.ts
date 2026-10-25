@@ -3,6 +3,8 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator.js';
 import { PERMISSIONS } from '../../common/permissions.js';
 import {
+  CalendarDayInputDto,
+  CalendarDayQueryDto,
   CancelLessonDto,
   ConflictCheckDto,
   CreateLessonSeriesDto,
@@ -29,6 +31,24 @@ export class ScheduleController {
   @RequirePermissions(PERMISSIONS.SCHEDULE_READ)
   conflicts(@Body() dto: ConflictCheckDto) {
     return this.scheduling.checkConflicts(dto);
+  }
+
+  @Get('calendar')
+  @RequirePermissions(PERMISSIONS.SCHEDULE_READ)
+  calendar(@Query() query: CalendarDayQueryDto) {
+    return this.scheduling.listCalendarDays(query);
+  }
+
+  @Post('calendar')
+  @RequirePermissions(PERMISSIONS.SCHEDULE_WRITE)
+  createCalendarDay(@Body() dto: CalendarDayInputDto) {
+    return this.scheduling.createCalendarDay(dto);
+  }
+
+  @Delete('calendar/:id')
+  @RequirePermissions(PERMISSIONS.SCHEDULE_WRITE)
+  removeCalendarDay(@Param('id') id: string) {
+    return this.scheduling.removeCalendarDay(id);
   }
 }
 
@@ -64,8 +84,24 @@ export class LessonSeriesController {
 
   @Delete(':id')
   @RequirePermissions(PERMISSIONS.SCHEDULE_WRITE)
+  remove(@Param('id') id: string) {
+    return this.scheduling.removeSeries(id);
+  }
+
+  /**
+   * Explicit "finish this series" — the behaviour `DELETE` used to have.
+   * Kept separate so deleting (recoverable) and ending (permanent) are not confused.
+   */
+  @Post(':id/end')
+  @RequirePermissions(PERMISSIONS.SCHEDULE_WRITE)
   end(@Param('id') id: string) {
     return this.scheduling.endSeries(id);
+  }
+
+  @Post(':id/restore')
+  @RequirePermissions(PERMISSIONS.SCHEDULE_WRITE)
+  restore(@Param('id') id: string) {
+    return this.scheduling.restoreSeries(id);
   }
 }
 

@@ -16,6 +16,11 @@ export class TenantsController {
     return this.tenants.getTenant();
   }
 
+  @Get('entitlements')
+  entitlements() {
+    return this.tenants.entitlements();
+  }
+
   @Patch('settings')
   @RequirePermissions(PERMISSIONS.SETTINGS_MANAGE)
   updateTenant(@Body() dto: UpdateTenantDto) {

@@ -7,7 +7,9 @@ import {
 } from '@nestjs/common';
 import { AuditService } from '../../common/audit.service.js';
 import { pageMeta } from '../../common/dto/pagination.dto.js';
+import { EntitlementsService } from '../../common/entitlements.service.js';
 import { ScopeService } from '../../common/scope.service.js';
+import { SoftDeleteService } from '../../common/soft-delete.service.js';
 import { TenantContextService } from '../../common/tenant-context.service.js';
 import { PrismaService } from '../../database/prisma.service.js';
 import { Prisma } from '../../generated/prisma/client.js';
@@ -49,6 +51,8 @@ export class PeopleService {
     private readonly ctx: TenantContextService,
     private readonly scope: ScopeService,
     private readonly audit: AuditService,
+    private readonly entitlements: EntitlementsService,
+    private readonly softDelete: SoftDeleteService,
   ) {}
 
   async listStudents(query: StudentQueryDto) {
@@ -181,6 +185,10 @@ export class PeopleService {
 
     try {
       const student = await this.prisma.$transaction(async (tx) => {
+        // Seat limit is checked inside the transaction, under a tenant row lock,
+        // so two concurrent creates cannot both slip past the last seat.
+        await this.entitlements.assertCanAddStudent(tx, tenantId);
+
         const created = await tx.student.create({
           data: {
             tenantId,
@@ -507,11 +515,57 @@ export class PeopleService {
   }
 
   async createTeacher(dto: CreateTeacherDto) {
-    const teacher = await this.prisma.teacher.create({
-      data: { ...dto, tenantId: this.ctx.tenantId },
+    const tenantId = this.ctx.tenantId;
+    const teacher = await this.prisma.$transaction(async (tx) => {
+      await this.entitlements.assertCanAddTeacher(tx, tenantId);
+      return tx.teacher.create({ data: { ...dto, tenantId } });
     });
     await this.audit.record('teacher.created', 'Teacher', teacher.id);
     return teacher;
+  }
+
+  async removeTeacher(id: string) {
+    await this.requireTeacher(id);
+    await this.softDelete.assertTeacherDeletable(id);
+    await this.prisma.teacher.delete({ where: { id } });
+    await this.audit.record('teacher.deleted', 'Teacher', id);
+    return { success: true };
+  }
+
+  async restoreTeacher(id: string) {
+    const teacher = await this.prisma.teacher.findFirst({
+      where: { id, tenantId: this.ctx.tenantId, deletedAt: { not: null } },
+    });
+    if (!teacher) throw new NotFoundException('Ο καθηγητής δεν βρέθηκε');
+
+    const restored = await this.prisma.teacher.update({
+      where: { id },
+      data: { deletedAt: null, deletedById: null },
+    });
+    await this.audit.record('teacher.restored', 'Teacher', id);
+    return restored;
+  }
+
+  async removeStudent(id: string) {
+    await this.requireStudent(id);
+    await this.softDelete.assertStudentDeletable(id);
+    await this.prisma.student.delete({ where: { id } });
+    await this.audit.record('student.deleted', 'Student', id);
+    return { success: true };
+  }
+
+  async restoreStudent(id: string) {
+    const student = await this.prisma.student.findFirst({
+      where: { id, tenantId: this.ctx.tenantId, deletedAt: { not: null } },
+    });
+    if (!student) throw new NotFoundException('Ο μαθητής δεν βρέθηκε');
+
+    const restored = await this.prisma.student.update({
+      where: { id },
+      data: { deletedAt: null, deletedById: null },
+    });
+    await this.audit.record('student.restored', 'Student', id);
+    return restored;
   }
 
   async updateTeacher(id: string, dto: UpdateTeacherDto) {

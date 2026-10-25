@@ -317,7 +317,7 @@ const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
                         </td>
                         <td>
                           @if (row.draft.status === 'LATE') {
-                            <input
+                            <input name="minutesLate"
                               type="number"
                               min="0"
                               max="600"
@@ -325,21 +325,19 @@ const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
                               [value]="row.draft.minutesLate ?? ''"
                               [disabled]="!canEdit()"
                               [attr.placeholder]="'attendance.lateMinutes' | transloco"
-                              (input)="setMinutes(row.student.id, $any($event.target).value)"
-                            />
+                              (input)="setMinutes(row.student.id, $any($event.target).value)" autocomplete="off" />
                           } @else {
                             <span class="text-ink-3">—</span>
                           }
                         </td>
                         <td>
-                          <input
+                          <input name="notes"
                             type="text"
                             class="input h-8 min-w-[200px]"
                             [value]="row.draft.notes"
                             [disabled]="!canEdit()"
                             [attr.placeholder]="'attendance.notesPlaceholder' | transloco"
-                            (input)="setNotes(row.student.id, $any($event.target).value)"
-                          />
+                            (input)="setNotes(row.student.id, $any($event.target).value)" autocomplete="off" />
                         </td>
                       </tr>
                     }
@@ -364,7 +362,7 @@ const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
               </h3>
               @if (canWrite()) {
                 <form class="mt-3" [formGroup]="noteForm" (ngSubmit)="addNote()">
-                  <textarea
+                  <textarea name="content"
                     class="textarea"
                     formControlName="content"
                     [attr.placeholder]="'attendance.notePlaceholder' | transloco"

@@ -258,13 +258,12 @@ type FinanceTab = 'overview' | 'payments';
                 [size]="15"
                 class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-3"
               />
-              <input
+              <input name="search"
                 type="search"
                 class="input pl-9"
                 [formControl]="searchControl"
                 [attr.placeholder]="'finance.searchStudent' | transloco"
-                [attr.aria-label]="'finance.searchStudent' | transloco"
-              />
+                [attr.aria-label]="'finance.searchStudent' | transloco" autocomplete="off" />
             </div>
             <span class="badge badge-neutral tabular-nums">
               {{ format.number(paymentsTotal()) }}
@@ -561,7 +560,7 @@ type FinanceTab = 'overview' | 'payments';
       <form [formGroup]="chargeForm" class="space-y-4" (ngSubmit)="submitCharge()">
         <label class="field">
           <span class="field-label">{{ 'finance.form.student' | transloco }}</span>
-          <select class="select" formControlName="studentId">
+          <select name="studentId" class="select" formControlName="studentId">
             <option value="">{{ 'finance.form.selectStudent' | transloco }}</option>
             @for (student of students(); track student.id) {
               <option [value]="student.id">
@@ -572,24 +571,24 @@ type FinanceTab = 'overview' | 'payments';
         </label>
         <label class="field">
           <span class="field-label">{{ 'finance.form.description' | transloco }}</span>
-          <input class="input" formControlName="description" maxlength="200" />
+          <input name="description" class="input" formControlName="description" maxlength="200" autocomplete="off" />
         </label>
         <div class="grid gap-3 sm:grid-cols-2">
           <label class="field">
             <span class="field-label">{{ 'finance.form.amount' | transloco }}</span>
-            <input class="input" type="number" min="0.01" step="0.01" formControlName="amount" />
+            <input name="amount" class="input" type="number" min="0.01" step="0.01" formControlName="amount" autocomplete="off" />
           </label>
           <label class="field">
             <span class="field-label">{{ 'finance.form.dueDate' | transloco }}</span>
-            <input class="input" type="date" formControlName="dueDate" />
+            <input name="dueDate" class="input" type="date" formControlName="dueDate" autocomplete="off" />
           </label>
           <label class="field">
             <span class="field-label">{{ 'finance.form.period' | transloco }}</span>
-            <input class="input" formControlName="period" placeholder="2026-10" />
+            <input name="period" class="input" formControlName="period" placeholder="2026-10" autocomplete="off" />
           </label>
           <label class="field">
             <span class="field-label">{{ 'finance.form.origin' | transloco }}</span>
-            <select class="select" formControlName="origin">
+            <select name="origin" class="select" formControlName="origin">
               @for (origin of origins; track origin) {
                 <option [value]="origin">{{ ('chargeOrigin.' + origin) | transloco }}</option>
               }
@@ -618,7 +617,7 @@ type FinanceTab = 'overview' | 'payments';
       <form [formGroup]="paymentForm" class="space-y-4" (ngSubmit)="submitPayment()">
         <label class="field">
           <span class="field-label">{{ 'finance.form.student' | transloco }}</span>
-          <select class="select" formControlName="studentId">
+          <select name="studentId" class="select" formControlName="studentId">
             <option value="">{{ 'finance.form.selectStudent' | transloco }}</option>
             @for (student of students(); track student.id) {
               <option [value]="student.id">
@@ -630,11 +629,11 @@ type FinanceTab = 'overview' | 'payments';
         <div class="grid gap-3 sm:grid-cols-2">
           <label class="field">
             <span class="field-label">{{ 'finance.form.amount' | transloco }}</span>
-            <input class="input" type="number" min="0.01" step="0.01" formControlName="amount" />
+            <input name="amount" class="input" type="number" min="0.01" step="0.01" formControlName="amount" autocomplete="off" />
           </label>
           <label class="field">
             <span class="field-label">{{ 'finance.form.method' | transloco }}</span>
-            <select class="select" formControlName="method">
+            <select name="method" class="select" formControlName="method">
               @for (method of methods; track method) {
                 <option [value]="method">{{ ('paymentMethod.' + method) | transloco }}</option>
               }
@@ -642,16 +641,16 @@ type FinanceTab = 'overview' | 'payments';
           </label>
           <label class="field">
             <span class="field-label">{{ 'finance.form.paidAt' | transloco }}</span>
-            <input class="input" type="date" formControlName="paidAt" />
+            <input name="paidAt" class="input" type="date" formControlName="paidAt" autocomplete="off" />
           </label>
           <label class="field">
             <span class="field-label">{{ 'finance.form.reference' | transloco }}</span>
-            <input class="input" formControlName="reference" maxlength="100" />
+            <input name="reference" class="input" formControlName="reference" maxlength="100" autocomplete="off" />
           </label>
         </div>
         <label class="field">
           <span class="field-label">{{ 'common.notes' | transloco }}</span>
-          <textarea class="textarea" rows="2" formControlName="notes" maxlength="1000"></textarea>
+          <textarea name="notes" class="textarea" rows="2" formControlName="notes" maxlength="1000"></textarea>
         </label>
         <p class="text-[12px] text-ink-3">{{ 'finance.paymentForm.allocationHint' | transloco }}</p>
         <div drawer-footer class="flex justify-end gap-2">
@@ -681,7 +680,7 @@ type FinanceTab = 'overview' | 'payments';
         }
         <label class="field">
           <span class="field-label">{{ 'finance.voidForm.reason' | transloco }}</span>
-          <textarea
+          <textarea name="reason"
             class="textarea"
             rows="3"
             formControlName="reason"
