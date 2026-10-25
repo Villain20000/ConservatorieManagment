@@ -5,6 +5,7 @@ import { AuthService } from './auth.service';
 import type { Permission, Role } from './models';
 
 export function homeRouteFor(auth: AuthService): string {
+  if (auth.isSupportSession()) return '/app/dashboard';
   if (!auth.isTenantUser() && auth.isPlatformAdmin()) return '/platform';
   return '/app/dashboard';
 }
@@ -20,7 +21,7 @@ export const authGuard: CanActivateFn = (
       queryParams: { returnUrl: state.url },
     });
   }
-  if (!auth.isTenantUser()) {
+  if (!auth.isTenantUser() && !auth.isSupportSession()) {
     return router.createUrlTree([auth.isPlatformAdmin() ? '/platform' : '/login']);
   }
   return true;

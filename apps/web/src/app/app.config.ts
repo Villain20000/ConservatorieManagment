@@ -15,6 +15,7 @@ import { authInterceptor } from './core/auth.interceptor';
 import { errorInterceptor } from './core/error.interceptor';
 import { AuthService } from './core/auth.service';
 import { LanguageService } from './core/language.service';
+import { SupportService } from './core/support.service';
 import { ThemeService } from './core/theme.service';
 import { TranslocoHttpLoader } from './core/transloco-loader';
 
@@ -42,12 +43,13 @@ export const appConfig: ApplicationConfig = {
       const language = inject(LanguageService);
       const transloco = inject(TranslocoService);
       const auth = inject(AuthService);
+      const support = inject(SupportService);
       inject(ThemeService);
       language.init();
       return Promise.all([
         firstValueFrom(transloco.load(language.current()).pipe(catchError(() => of({})))),
         auth.bootstrap(),
-      ]).then(() => undefined);
+      ]).then(() => support.restore());
     }),
   ],
 };

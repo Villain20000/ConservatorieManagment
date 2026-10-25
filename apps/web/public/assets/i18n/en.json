@@ -1052,6 +1052,7 @@
       "preferences": "Preferences",
       "tenant": "Conservatory",
       "calendar": "Calendar",
+      "support": "Support access",
       "deleted": "Deleted items"
     },
     "profile": {
@@ -1255,6 +1256,70 @@
       "branches": "Branches"
     },
     "openTenant": "View"
+  },
+  "support": {
+    "banner": {
+      "title": "Support mode",
+      "readOnly": "Read-only",
+      "reason": "Reason: {{reason}}",
+      "ticket": "Ticket: {{ticket}}",
+      "remaining": "{{minutes}} min remaining",
+      "exit": "Exit support mode"
+    },
+    "panel": {
+      "title": "Support access",
+      "subtitle": "Temporary, audited read-only access to this tenant.",
+      "suspendedHint": "Support mode is unavailable while the tenant is suspended."
+    },
+    "create": {
+      "reason": "Access reason",
+      "reasonPlaceholder": "Describe why access is needed…",
+      "reasonHint": "10 to 500 characters. The reason is written to the audit log.",
+      "reasonMin": "The reason must be at least 10 characters.",
+      "ticket": "Ticket reference",
+      "ticketPlaceholder": "e.g. SUP-1042",
+      "duration": "Duration",
+      "durationOption": "{{minutes}} minutes",
+      "submit": "Create grant",
+      "creating": "Creating…",
+      "created": "The grant was created.",
+      "createdTitle": "The grant is ready",
+      "createdHint": "Grant ID: {{id}}",
+      "enterNow": "Enter support mode"
+    },
+    "list": {
+      "title": "Recent grants",
+      "empty": "No grants exist for this tenant.",
+      "expires": "Expires",
+      "used": "Used",
+      "usedNever": "Not used yet",
+      "created": "Created",
+      "status": "Status",
+      "reason": "Reason",
+      "ticket": "Ticket",
+      "actions": "Actions",
+      "enter": "Enter support mode",
+      "entering": "Entering…",
+      "revoke": "Revoke",
+      "revoking": "Revoking…",
+      "revokeTitle": "Revoke grant",
+      "revokeMessage": "Support access will end immediately. Continue?",
+      "revoked": "The grant was revoked.",
+      "enterError": "The grant is no longer active."
+    },
+    "status": {
+      "ACTIVE": "Active",
+      "REVOKED": "Revoked",
+      "EXPIRED": "Expired"
+    },
+    "settings": {
+      "title": "Support access",
+      "subtitle": "Support grants for your conservatory. Access is always read-only and time-limited.",
+      "empty": "No support grants have been recorded.",
+      "revokeTitle": "Revoke support access",
+      "revokeMessage": "Support access will end immediately. Continue?",
+      "revoked": "Support access was revoked."
+    }
   },
   "errors": {
     "network": "Cannot reach the server. Check your connection.",

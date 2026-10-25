@@ -17,16 +17,17 @@ import { TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
+import { ConfirmService } from '../../core/confirm.service';
 import { FormatService } from '../../core/format.service';
 import { LanguageService } from '../../core/language.service';
-import type { TenantInfo } from '../../core/models';
+import type { SupportGrant, TenantInfo } from '../../core/models';
 import { ThemeService } from '../../core/theme.service';
 import { ToastService } from '../../core/toast.service';
 import { DeletedItemsComponent } from './deleted-items';
 import { SchoolCalendarComponent } from './school-calendar';
 import { SHARED_IMPORTS } from '../../shared/shared.imports';
 
-type TabId = 'profile' | 'security' | 'preferences' | 'tenant' | 'calendar' | 'deleted';
+type TabId = 'profile' | 'security' | 'preferences' | 'tenant' | 'calendar' | 'support' | 'deleted';
 
 function passwordsMatch(control: AbstractControl): ValidationErrors | null {
   const newPassword = control.get('newPassword')?.value;
@@ -43,7 +44,7 @@ function passwordsMatch(control: AbstractControl): ValidationErrors | null {
 
       <div class="mb-5 overflow-x-auto">
         <nav class="inline-flex min-w-full gap-1 rounded-xl border border-line bg-surface p-1 sm:min-w-0" role="tablist">
-          @for (item of tabs; track item.id) {
+          @for (item of tabs(); track item.id) {
             <button
               type="button"
               role="tab"
@@ -416,6 +417,77 @@ function passwordsMatch(control: AbstractControl): ValidationErrors | null {
             <div class="skeleton h-72 rounded-2xl"></div>
           }
         }
+        @case ('support') {
+          <section class="card">
+            <div class="card-head">
+              <div>
+                <h2 class="text-[15px] font-semibold">{{ 'support.settings.title' | transloco }}</h2>
+                <p class="mt-0.5 text-[12px] text-ink-3">{{ 'support.settings.subtitle' | transloco }}</p>
+              </div>
+              <span class="icon-box h-9 w-9"><app-icon name="eye" [size]="16" /></span>
+            </div>
+            <div class="card-pad">
+              @if (loadingGrants()) {
+                <div class="space-y-2">
+                  <div class="skeleton h-16"></div>
+                  <div class="skeleton h-16"></div>
+                </div>
+              } @else if (grants().length === 0) {
+                <app-empty-state title="support.settings.empty" icon="eye" />
+              } @else {
+                <div class="overflow-x-auto">
+                  <table class="table">
+                    <thead>
+                      <tr>
+                        <th>{{ 'support.list.status' | transloco }}</th>
+                        <th>{{ 'support.list.reason' | transloco }}</th>
+                        <th>{{ 'support.list.ticket' | transloco }}</th>
+                        <th>{{ 'support.list.expires' | transloco }}</th>
+                        <th>{{ 'support.list.used' | transloco }}</th>
+                        <th class="text-right">{{ 'support.list.actions' | transloco }}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (grant of grants(); track grant.id) {
+                        <tr>
+                          <td>
+                            <app-status-badge
+                              [status]="displayStatus(grant)"
+                              [label]="supportStatusLabel(displayStatus(grant))"
+                            />
+                          </td>
+                          <td class="max-w-[22rem]">
+                            <p class="truncate text-[12.5px] font-medium">{{ grant.reason }}</p>
+                            <p class="mt-0.5 text-[11px] text-ink-3">
+                              {{ 'support.list.created' | transloco }}: {{ format.dateTime(grant.createdAt) }}
+                            </p>
+                          </td>
+                          <td class="text-[12px] text-ink-2">{{ grant.ticketRef || ('common.noneFound' | transloco) }}</td>
+                          <td class="whitespace-nowrap text-[12px] text-ink-2">{{ format.dateTime(grant.expiresAt) }}</td>
+                          <td class="whitespace-nowrap text-[12px] text-ink-2">
+                            {{ grant.usedAt ? format.dateTime(grant.usedAt) : ('support.list.usedNever' | transloco) }}
+                          </td>
+                          <td class="text-right">
+                            @if (grant.status === 'ACTIVE') {
+                              <button
+                                type="button"
+                                class="btn btn-ghost btn-sm text-danger"
+                                [disabled]="revokingId() === grant.id"
+                                (click)="revokeGrant(grant)"
+                              >
+                                {{ (revokingId() === grant.id ? 'support.list.revoking' : 'support.list.revoke') | transloco }}
+                              </button>
+                            }
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
+            </div>
+          </section>
+        }
         @case ('deleted') {
           <app-deleted-items />
         }
@@ -440,20 +512,32 @@ export class SettingsPage {
   private readonly fb = inject(FormBuilder).nonNullable;
   private readonly router = inject(Router);
   private readonly toast = inject(ToastService);
+  private readonly confirm = inject(ConfirmService);
   private readonly transloco = inject(TranslocoService);
   readonly auth = inject(AuthService);
   readonly format = inject(FormatService);
   readonly language = inject(LanguageService);
   readonly theme = inject(ThemeService);
 
-  readonly tabs: { id: TabId; label: string; icon: string }[] = [
+  private readonly allTabs: { id: TabId; label: string; icon: string }[] = [
     { id: 'profile', label: 'settings.tabs.profile', icon: 'user' },
     { id: 'security', label: 'settings.tabs.security', icon: 'lock' },
     { id: 'preferences', label: 'settings.tabs.preferences', icon: 'sun' },
     { id: 'tenant', label: 'settings.tabs.tenant', icon: 'building' },
     { id: 'calendar', label: 'settings.tabs.calendar', icon: 'calendar' },
+    { id: 'support', label: 'settings.tabs.support', icon: 'eye' },
     { id: 'deleted', label: 'settings.tabs.deleted', icon: 'trash' },
   ];
+
+  /**
+   * Support access requires `settings.manage`, which the synthetic support
+   * session never carries; hiding the tab there is intentional.
+   */
+  readonly tabs = computed(() =>
+    this.auth.has('settings.manage') && !this.auth.isSupportSession()
+      ? this.allTabs
+      : this.allTabs.filter((tab) => tab.id !== 'support'),
+  );
 
   readonly tab = signal<TabId>('profile');
   readonly savingPassword = signal(false);
@@ -461,6 +545,9 @@ export class SettingsPage {
   readonly signingOut = signal(false);
   readonly tenant = signal<TenantInfo | null>(null);
   readonly loadingTenant = signal(true);
+  readonly grants = signal<SupportGrant[]>([]);
+  readonly loadingGrants = signal(false);
+  readonly revokingId = signal<string | null>(null);
 
   readonly passwordForm = this.fb.group(
     {
@@ -488,7 +575,48 @@ export class SettingsPage {
   }
 
   selectTab(tab: TabId): void {
+    if (tab === 'support' && !this.tabs().some((item) => item.id === 'support')) return;
     this.tab.set(tab);
+    if (tab === 'support') void this.loadSupportGrants();
+  }
+
+  displayStatus(grant: SupportGrant): SupportGrant['status'] {
+    // Stale ACTIVE grants are shown as expired for display only.
+    if (grant.status === 'ACTIVE' && new Date(grant.expiresAt).getTime() <= Date.now()) {
+      return 'EXPIRED';
+    }
+    return grant.status;
+  }
+
+  supportStatusLabel(status: string): string {
+    const key = `support.status.${status}`;
+    const label = this.transloco.translate(key);
+    return label === key ? status.replaceAll('_', ' ') : label;
+  }
+
+  async revokeGrant(grant: SupportGrant): Promise<void> {
+    if (this.revokingId()) return;
+    const confirmed = await this.confirm.confirm({
+      title: this.transloco.translate('support.settings.revokeTitle'),
+      message: this.transloco.translate('support.settings.revokeMessage'),
+      confirmLabel: this.transloco.translate('support.list.revoke'),
+      cancelLabel: this.transloco.translate('common.cancel'),
+      danger: true,
+    });
+    if (!confirmed) return;
+
+    this.revokingId.set(grant.id);
+    try {
+      await firstValueFrom(
+        this.api.post<SupportGrant>(`/settings/support-access/${grant.id}/revoke`),
+      );
+      this.toast.success(this.transloco.translate('support.settings.revoked'));
+      await this.loadSupportGrants();
+    } catch {
+      // The global interceptor reports the failure.
+    } finally {
+      this.revokingId.set(null);
+    }
   }
 
   maxLabel(value: number | null | undefined): string {
@@ -529,6 +657,21 @@ export class SettingsPage {
     } finally {
       this.signingOut.set(false);
       await this.router.navigateByUrl('/login');
+    }
+  }
+
+  private async loadSupportGrants(): Promise<void> {
+    if (!this.auth.has('settings.manage')) return;
+    this.loadingGrants.set(true);
+    try {
+      const response = await firstValueFrom(
+        this.api.list<SupportGrant>('/settings/support-access'),
+      );
+      this.grants.set(response.data);
+    } catch {
+      this.grants.set([]);
+    } finally {
+      this.loadingGrants.set(false);
     }
   }
 

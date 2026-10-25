@@ -7,12 +7,33 @@ import type {
   Role,
   Session,
   SessionUser,
+  SupportSession,
   TenantSelection,
 } from './models';
+import { clearStoredSupportSession, readStoredSupportSession } from './support-session';
 
 const TENANT_KEY = 'musicos.tenant';
 const SESSION_KEY = 'musicos.session';
 export const MFA_CHALLENGE_KEY = 'musicos.mfa.challenge';
+
+/**
+ * Read-only permissions carried by a support grant. Mirrors the API's
+ * `SUPPORT_PERMISSIONS`: the synthetic DIRECTOR can read the tenant but cannot
+ * manage settings, the platform or the portal.
+ */
+const SUPPORT_PERMISSIONS: Permission[] = [
+  'students.read',
+  'teachers.read',
+  'academics.read',
+  'schedule.read',
+  'attendance.read',
+  'finance.read',
+  'exams.read',
+  'documents.read',
+  'reports.read',
+  'announcements.read',
+  'privacy.read',
+];
 
 /** Password accepted, second factor pending. Carries no session. */
 export interface MfaChallenge {
@@ -38,11 +59,13 @@ export class AuthService {
   readonly accessToken = signal<string | null>(null);
   readonly ready = signal(false);
   readonly requiresTenantSelection = signal(false);
+  readonly support = signal<SupportSession | null>(null);
 
   readonly isAuthenticated = computed(() => Boolean(this.accessToken()));
   readonly role = computed<Role | null>(() => this.activeTenant()?.role ?? null);
   readonly isPlatformAdmin = computed(() => this.user()?.isPlatformAdmin === true);
   readonly isTenantUser = computed(() => this.activeTenant() !== null);
+  readonly isSupportSession = computed(() => this.support() !== null);
   readonly displayName = computed(() => {
     const user = this.user();
     return user ? `${user.firstName} ${user.lastName}` : '';
@@ -60,7 +83,9 @@ export class AuthService {
       return;
     }
     try {
-      const tenantId = this.storedTenantId();
+      // A stored support grant must never send its synthetic tenant id to
+      // /auth/refresh; SupportService.restore() re-enters support afterwards.
+      const tenantId = readStoredSupportSession() ? null : this.storedTenantId();
       const session = await firstValueFrom(
         this.api.post<Session>('/auth/refresh', tenantId ? { tenantId } : {}),
       );
@@ -88,6 +113,41 @@ export class AuthService {
   /** Applies the session returned by `/auth/mfa/verify`. */
   completeMfa(session: Session): void {
     this.applySession(session);
+  }
+
+  /**
+   * Swaps the tenant context for the synthetic read-only DIRECTOR membership
+   * carried by a support grant. The synthetic tenant id is never persisted.
+   */
+  enterSupport(session: SupportSession): void {
+    this.support.set(session);
+    this.memberships.set([]);
+    this.requiresTenantSelection.set(false);
+    this.applySupportContext(session);
+  }
+
+  /**
+   * Restores the platform session after support mode. Support state is dropped
+   * before the refresh so the refreshed server session cannot be overwritten by
+   * the synthetic tenant; a failed refresh clears the session gracefully.
+   */
+  async exitSupport(): Promise<void> {
+    const hadSupport = this.support() !== null;
+    this.support.set(null);
+    clearStoredSupportSession();
+    if (!hadSupport) return;
+
+    this.memberships.set([]);
+    this.activeTenant.set(null);
+    this.permissions.set([]);
+    this.requiresTenantSelection.set(false);
+
+    try {
+      const session = await firstValueFrom(this.api.post<Session>('/auth/refresh', {}));
+      this.applySession(session);
+    } catch {
+      this.clearSession();
+    }
   }
 
   async selectTenant(tenantId: string): Promise<void> {
@@ -138,12 +198,33 @@ export class AuthService {
   }
 
   private async performRefresh(): Promise<string | null> {
+    const support = this.support();
     try {
-      const tenantId = this.activeTenant()?.tenantId ?? this.storedTenantId();
+      // Never send a synthetic `support:*` identifier to /auth/refresh.
+      const tenantId = support
+        ? null
+        : (this.activeTenant()?.tenantId ?? this.storedTenantId());
       const session = await firstValueFrom(
         this.api.post<Session>('/auth/refresh', tenantId ? { tenantId } : {}),
       );
-      this.applySession(session);
+
+      if (support && this.isGrantUsable(support)) {
+        this.applySession(session);
+        // The refresh payload is the platform session; put the synthetic
+        // read-only tenant back on top of it.
+        this.applySupportContext(support);
+      } else if (support) {
+        // The grant expired locally: drop it and fall back to the platform
+        // session. SupportService observes the cleared signal and leaves.
+        this.support.set(null);
+        clearStoredSupportSession();
+        this.memberships.set([]);
+        this.activeTenant.set(null);
+        this.permissions.set([]);
+        this.applySession(session);
+      } else {
+        this.applySession(session);
+      }
       return session.accessToken;
     } catch {
       this.clearSession();
@@ -153,15 +234,43 @@ export class AuthService {
 
   private applySession(session: Session): void {
     this.user.set(session.user);
+    this.accessToken.set(session.accessToken);
+    this.persistSession(true);
+
+    if (this.support()) {
+      // Preserve the synthetic support tenant and its read-only permissions;
+      // the platform session must not overwrite them while support is active.
+      this.memberships.set([]);
+      this.requiresTenantSelection.set(false);
+      return;
+    }
+
     this.memberships.set(session.memberships);
     this.activeTenant.set(session.activeTenant);
     this.permissions.set(session.permissions);
-    this.accessToken.set(session.accessToken);
     this.requiresTenantSelection.set(session.requiresTenantSelection);
     if (session.activeTenant) {
+      // Only a real tenant membership is ever persisted, never `support:*`.
       this.persistTenant(session.activeTenant.tenantId);
     }
-    this.persistSession(true);
+  }
+
+  private applySupportContext(session: SupportSession): void {
+    this.activeTenant.set({
+      id: `support:${session.grant.id}`,
+      tenantId: session.tenant.id,
+      role: 'DIRECTOR',
+      branchId: null,
+      tenant: { ...session.tenant, status: 'ACTIVE' },
+    });
+    this.permissions.set([...SUPPORT_PERMISSIONS]);
+  }
+
+  private isGrantUsable(session: SupportSession): boolean {
+    return (
+      session.grant.status === 'ACTIVE' &&
+      new Date(session.grant.expiresAt).getTime() > Date.now()
+    );
   }
 
   private clearSession(): void {
@@ -171,6 +280,8 @@ export class AuthService {
     this.permissions.set([]);
     this.accessToken.set(null);
     this.requiresTenantSelection.set(false);
+    this.support.set(null);
+    clearStoredSupportSession();
     this.persistSession(false);
   }
 

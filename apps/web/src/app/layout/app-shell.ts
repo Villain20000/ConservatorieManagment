@@ -9,6 +9,7 @@ import { EntitlementsService } from '../core/entitlements.service';
 import { FormatService } from '../core/format.service';
 import { LanguageService } from '../core/language.service';
 import { navSectionsFor } from '../core/nav';
+import { SupportService } from '../core/support.service';
 import { ThemeService } from '../core/theme.service';
 import type { AppNotification, Membership } from '../core/models';
 import { AvatarComponent } from '../shared/ui/avatar';
@@ -287,6 +288,49 @@ import { IconComponent } from '../shared/ui/icon';
           </div>
         </header>
 
+        @if (support.session(); as session) {
+          <div class="border-b border-warning/50 bg-warning-soft px-4 py-3 lg:px-8">
+            <div class="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-4 gap-y-2">
+              <span
+                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-warning/15 text-warning"
+              >
+                <app-icon name="eye" [size]="17" />
+              </span>
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <p class="text-[12.5px] font-semibold text-ink">
+                    {{ 'support.banner.title' | transloco }}
+                  </p>
+                  <span class="badge badge-warning">{{ 'support.banner.readOnly' | transloco }}</span>
+                  <span class="text-[12.5px] font-medium text-ink">{{ session.tenant.name }}</span>
+                </div>
+                <p class="mt-0.5 line-clamp-2 text-[11.5px] leading-snug text-ink-2">
+                  {{ 'support.banner.reason' | transloco: { reason: session.grant.reason } }}
+                  @if (session.grant.ticketRef) {
+                    <span> · {{ 'support.banner.ticket' | transloco: { ticket: session.grant.ticketRef } }}</span>
+                  }
+                </p>
+              </div>
+              <p
+                class="shrink-0 text-[12px] font-semibold tabular-nums text-ink"
+                role="status"
+                aria-live="polite"
+              >
+                {{ 'support.banner.remaining' | transloco: { minutes: supportRemainingMinutes() } }}
+              </p>
+              <button
+                type="button"
+                class="btn btn-secondary btn-sm shrink-0"
+                [disabled]="exitingSupport()"
+                (click)="exitSupport()"
+              >
+                <app-icon name="logout" [size]="14" />
+                {{ 'support.banner.exit' | transloco }}
+              </button>
+            </div>
+          </div>
+        }
+
         @if (entitlements.isSuspended()) {
           <div class="border-b border-danger/30 bg-danger-soft px-4 py-3 lg:px-8" role="alert">
             <div class="mx-auto flex max-w-[1600px] items-start gap-3">
@@ -424,6 +468,7 @@ export class AppShell {
   readonly theme = inject(ThemeService);
   readonly format = inject(FormatService);
   readonly entitlements = inject(EntitlementsService);
+  readonly support = inject(SupportService);
   private readonly api = inject(ApiService);
   private readonly router = inject(Router);
 
@@ -436,6 +481,7 @@ export class AppShell {
   readonly notificationsLoading = signal(false);
   readonly markingAll = signal(false);
   readonly switchingTenant = signal(false);
+  readonly exitingSupport = signal(false);
   readonly searchTerm = signal('');
 
   readonly sections = computed(() =>
@@ -445,18 +491,29 @@ export class AppShell {
       (feature) => this.entitlements.has(feature),
     ),
   );
-  readonly canSwitchTenant = computed(() => this.auth.memberships().length > 1);
+  readonly canSwitchTenant = computed(
+    () => !this.support.active() && this.auth.memberships().length > 1,
+  );
   readonly tenantName = computed(() => this.auth.activeTenant()?.tenant.name ?? '');
   readonly roleKey = computed(() => {
     const role = this.auth.role();
     return role ? `roles.${role}` : 'common.unknown';
   });
+  readonly supportRemainingMinutes = computed(() =>
+    Math.max(1, Math.ceil(this.support.remainingMs() / 60_000)),
+  );
   readonly overlayOpen = computed(
     () => this.tenantMenuOpen() || this.notificationsOpen() || this.avatarMenuOpen(),
   );
 
   constructor() {
-    void this.loadNotifications();
+    // Support mode is read-only: reading notifications would also leave read
+    // receipts, so skip the call and show no badge.
+    if (this.support.active()) {
+      this.unread.set(0);
+    } else {
+      void this.loadNotifications();
+    }
     // Tenant plan state drives the banner and feature visibility. A platform
     // admin has no tenant, in which case the service resolves to null.
     void this.entitlements.load();
@@ -564,6 +621,16 @@ export class AppShell {
     this.closeOverlays();
     this.mobileOpen.set(false);
     await this.router.navigate(['/login']);
+  }
+
+  async exitSupport(): Promise<void> {
+    if (this.exitingSupport()) return;
+    this.exitingSupport.set(true);
+    try {
+      await this.support.exit();
+    } finally {
+      this.exitingSupport.set(false);
+    }
   }
 
   private async loadNotifications(): Promise<void> {

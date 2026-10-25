@@ -84,6 +84,27 @@ export interface TenantRef {
   status: string;
 }
 
+export type SupportGrantStatus = 'ACTIVE' | 'REVOKED' | 'EXPIRED';
+
+export interface SupportGrant {
+  id: string;
+  tenantId: string;
+  reason: string;
+  ticketRef: string | null;
+  status: SupportGrantStatus;
+  expiresAt: string;
+  usedAt: string | null;
+  revokedAt: string | null;
+  createdAt: string;
+  tenant: Pick<TenantRef, 'id' | 'name' | 'slug'>;
+  actor?: { id: string; firstName: string; lastName: string; email: string };
+}
+
+export interface SupportSession {
+  grant: SupportGrant;
+  tenant: Pick<TenantRef, 'id' | 'name' | 'slug'>;
+}
+
 export interface Membership {
   id: string;
   tenantId: string;

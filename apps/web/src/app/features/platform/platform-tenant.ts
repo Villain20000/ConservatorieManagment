@@ -6,16 +6,23 @@ import {
   input,
   signal,
 } from '@angular/core';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Router } from '@angular/router';
 import { TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../../core/api.service';
+import { ConfirmService } from '../../core/confirm.service';
 import { FormatService } from '../../core/format.service';
-import type { PlatformTenantDetail } from '../../core/models';
+import type { PlatformTenantDetail, SupportGrant } from '../../core/models';
+import { SupportService } from '../../core/support.service';
+import { ToastService } from '../../core/toast.service';
 import { SHARED_IMPORTS } from '../../shared/shared.imports';
+
+const SUPPORT_DURATIONS = [15, 30, 60, 120, 240] as const;
 
 @Component({
   selector: 'app-platform-tenant',
-  imports: [SHARED_IMPORTS],
+  imports: [SHARED_IMPORTS, ReactiveFormsModule],
   template: `
     <div class="page">
       <a routerLink="/platform" class="btn btn-ghost btn-sm -ml-2 mb-3">
@@ -239,6 +246,155 @@ import { SHARED_IMPORTS } from '../../shared/shared.imports';
               </ul>
             }
           </section>
+
+          <section class="card lg:col-span-2">
+            <div class="card-head">
+              <div>
+                <h2 class="text-[15px] font-semibold">{{ 'support.panel.title' | transloco }}</h2>
+                <p class="mt-0.5 text-[12px] text-ink-3">{{ 'support.panel.subtitle' | transloco }}</p>
+              </div>
+              <span class="icon-box h-8 w-8"><app-icon name="eye" [size]="14" /></span>
+            </div>
+            <div class="card-pad space-y-5">
+              @if (detail.status === 'SUSPENDED') {
+                <div class="alert alert-warning">
+                  <app-icon name="alert" [size]="16" class="mt-0.5 shrink-0" />
+                  <p>{{ 'support.panel.suspendedHint' | transloco }}</p>
+                </div>
+              }
+
+              @if (lastCreated(); as created) {
+                <div class="alert alert-info">
+                  <app-icon name="check-circle" [size]="16" class="mt-0.5 shrink-0" />
+                  <div class="min-w-0 flex-1">
+                    <p class="font-semibold">{{ 'support.create.createdTitle' | transloco }}</p>
+                    <p class="mt-0.5 text-[11.5px]">
+                      {{ 'support.create.createdHint' | transloco: { id: created.id } }}
+                    </p>
+                    <p class="mt-0.5 text-[11.5px]">
+                      {{ 'support.list.expires' | transloco }}: {{ format.dateTime(created.expiresAt) }}
+                    </p>
+                    <button
+                      type="button"
+                      class="btn btn-secondary btn-sm mt-2"
+                      [disabled]="detail.status === 'SUSPENDED' || enteringId() === created.id"
+                      (click)="enterSupport(created)"
+                    >
+                      <app-icon name="eye" [size]="14" />
+                      {{ 'support.create.enterNow' | transloco }}
+                    </button>
+                  </div>
+                </div>
+              }
+
+              <form [formGroup]="grantForm" class="grid gap-4 sm:grid-cols-2" (ngSubmit)="createGrant()">
+                <div class="field sm:col-span-2">
+                  <label class="field-label" for="support-reason">{{ 'support.create.reason' | transloco }}</label>
+                  <textarea
+                    id="support-reason"
+                    class="input min-h-24"
+                    formControlName="reason"
+                    [placeholder]="'support.create.reasonPlaceholder' | transloco"
+                  ></textarea>
+                  <p class="field-hint">{{ 'support.create.reasonHint' | transloco }}</p>
+                  @if (grantForm.controls.reason.touched && grantForm.controls.reason.hasError('minlength')) {
+                    <p class="field-error">{{ 'support.create.reasonMin' | transloco }}</p>
+                  } @else if (grantForm.controls.reason.touched && grantForm.controls.reason.hasError('required')) {
+                    <p class="field-error">{{ 'common.required' | transloco }}</p>
+                  }
+                </div>
+                <div class="field">
+                  <label class="field-label" for="support-ticket">{{ 'support.create.ticket' | transloco }}</label>
+                  <input
+                    id="support-ticket"
+                    class="input"
+                    formControlName="ticketRef"
+                    [placeholder]="'support.create.ticketPlaceholder' | transloco"
+                    autocomplete="off"
+                  />
+                </div>
+                <div class="field">
+                  <label class="field-label" for="support-duration">{{ 'support.create.duration' | transloco }}</label>
+                  <select id="support-duration" class="input" formControlName="expiresInMinutes">
+                    @for (minutes of durations; track minutes) {
+                      <option [ngValue]="minutes">
+                        {{ 'support.create.durationOption' | transloco: { minutes } }}
+                      </option>
+                    }
+                  </select>
+                </div>
+                <div class="flex justify-end sm:col-span-2">
+                  <button type="submit" class="btn btn-primary" [disabled]="creatingGrant() || grantForm.invalid">
+                    <app-icon name="plus" [size]="15" />
+                    {{ (creatingGrant() ? 'support.create.creating' : 'support.create.submit') | transloco }}
+                  </button>
+                </div>
+              </form>
+
+              <div class="border-t border-line pt-4">
+                <div class="flex items-center justify-between gap-2">
+                  <h3 class="text-[13px] font-semibold">{{ 'support.list.title' | transloco }}</h3>
+                  <span class="badge badge-neutral">{{ grants().length }}</span>
+                </div>
+                @if (loadingGrants()) {
+                  <div class="mt-3 space-y-2">
+                    <div class="skeleton h-12"></div>
+                    <div class="skeleton h-12"></div>
+                  </div>
+                } @else if (grants().length === 0) {
+                  <p class="mt-3 text-[12.5px] text-ink-3">{{ 'support.list.empty' | transloco }}</p>
+                } @else {
+                  <ul class="mt-2 divide-y divide-line">
+                    @for (grant of grants(); track grant.id) {
+                      <li class="py-3">
+                        <div class="flex flex-wrap items-center gap-2">
+                          <app-status-badge
+                            [status]="displayStatus(grant)"
+                            [label]="supportStatusLabel(displayStatus(grant))"
+                          />
+                          <p class="min-w-0 flex-1 text-[12.5px] font-semibold">{{ grant.reason }}</p>
+                          @if (grant.ticketRef) {
+                            <span class="badge badge-neutral">{{ grant.ticketRef }}</span>
+                          }
+                        </div>
+                        <p class="mt-1 text-[11.5px] leading-snug text-ink-3">
+                          {{ 'support.list.expires' | transloco }}: {{ format.dateTime(grant.expiresAt) }}
+                          · {{ usedLabel(grant) }}
+                        </p>
+                        <p class="mt-0.5 text-[11.5px] text-ink-3">
+                          {{ 'support.list.created' | transloco }}: {{ format.dateTime(grant.createdAt) }}
+                        </p>
+                        <div class="mt-2 flex flex-wrap gap-2">
+                          @if (displayStatus(grant) === 'ACTIVE') {
+                            <button
+                              type="button"
+                              class="btn btn-secondary btn-sm"
+                              [disabled]="detail.status === 'SUSPENDED' || enteringId() === grant.id"
+                              (click)="enterSupport(grant)"
+                            >
+                              <app-icon name="eye" [size]="14" />
+                              {{ (enteringId() === grant.id ? 'support.list.entering' : 'support.list.enter') | transloco }}
+                            </button>
+                          }
+                          @if (grant.status === 'ACTIVE') {
+                            <button
+                              type="button"
+                              class="btn btn-ghost btn-sm text-danger"
+                              [disabled]="revokingId() === grant.id"
+                              (click)="revoke(grant)"
+                            >
+                              <app-icon name="x" [size]="14" />
+                              {{ (revokingId() === grant.id ? 'support.list.revoking' : 'support.list.revoke') | transloco }}
+                            </button>
+                          }
+                        </div>
+                      </li>
+                    }
+                  </ul>
+                }
+              </div>
+            </div>
+          </section>
         </div>
       }
     </div>
@@ -248,13 +404,31 @@ import { SHARED_IMPORTS } from '../../shared/shared.imports';
 export class PlatformTenantPage {
   private readonly api = inject(ApiService);
   private readonly transloco = inject(TranslocoService);
+  private readonly router = inject(Router);
+  private readonly confirm = inject(ConfirmService);
+  private readonly toast = inject(ToastService);
+  private readonly fb = inject(FormBuilder).nonNullable;
   readonly format = inject(FormatService);
+  readonly support = inject(SupportService);
 
   readonly id = input.required<string>();
   readonly tenant = signal<PlatformTenantDetail | null>(null);
   readonly loading = signal(true);
   readonly error = signal(false);
   readonly skeletons = [1, 2, 3, 4];
+
+  readonly durations = SUPPORT_DURATIONS;
+  readonly grantForm = this.fb.group({
+    reason: ['', [Validators.required, Validators.minLength(10), Validators.maxLength(500)]],
+    ticketRef: ['', [Validators.maxLength(120)]],
+    expiresInMinutes: [60],
+  });
+  readonly grants = signal<SupportGrant[]>([]);
+  readonly loadingGrants = signal(false);
+  readonly creatingGrant = signal(false);
+  readonly enteringId = signal<string | null>(null);
+  readonly revokingId = signal<string | null>(null);
+  readonly lastCreated = signal<SupportGrant | null>(null);
 
   constructor() {
     effect(() => {
@@ -284,6 +458,126 @@ export class PlatformTenantPage {
     return 'accent';
   }
 
+  displayStatus(grant: SupportGrant): SupportGrant['status'] {
+    // Stale ACTIVE grants are shown as expired for display only; the API
+    // response is never mutated.
+    if (grant.status === 'ACTIVE' && new Date(grant.expiresAt).getTime() <= Date.now()) {
+      return 'EXPIRED';
+    }
+    return grant.status;
+  }
+
+  supportStatusLabel(status: string): string {
+    const key = `support.status.${status}`;
+    const label = this.transloco.translate(key);
+    return label === key ? status.replaceAll('_', ' ') : label;
+  }
+
+  usedLabel(grant: SupportGrant): string {
+    if (!grant.usedAt) return this.transloco.translate('support.list.usedNever');
+    return `${this.transloco.translate('support.list.used')}: ${this.format.dateTime(grant.usedAt)}`;
+  }
+
+  async createGrant(): Promise<void> {
+    const detail = this.tenant();
+    if (!detail || this.creatingGrant()) return;
+    if (this.grantForm.invalid) {
+      this.grantForm.markAllAsTouched();
+      return;
+    }
+
+    this.creatingGrant.set(true);
+    try {
+      const value = this.grantForm.getRawValue();
+      const grant = await firstValueFrom(
+        this.api.post<SupportGrant>('/platform/support-grants', {
+          tenantId: detail.id,
+          reason: value.reason.trim(),
+          ticketRef: value.ticketRef.trim() || undefined,
+          expiresInMinutes: value.expiresInMinutes,
+        }),
+      );
+      this.lastCreated.set(grant);
+      this.grantForm.reset({ reason: '', ticketRef: '', expiresInMinutes: 60 });
+      this.toast.success(this.transloco.translate('support.create.created'));
+      await this.loadGrants(detail.id);
+    } catch {
+      // The global interceptor reports the failure.
+    } finally {
+      this.creatingGrant.set(false);
+    }
+  }
+
+  async enterSupport(grant: SupportGrant): Promise<void> {
+    const detail = this.tenant();
+    if (!detail || detail.status === 'SUSPENDED' || this.enteringId()) return;
+
+    this.enteringId.set(grant.id);
+    try {
+      const fresh = await firstValueFrom(
+        this.api.get<SupportGrant>(`/platform/support-grants/${grant.id}`),
+      );
+      if (fresh.status !== 'ACTIVE' || new Date(fresh.expiresAt).getTime() <= Date.now()) {
+        this.toast.error(this.transloco.translate('support.list.enterError'));
+        await this.loadGrants(detail.id);
+        return;
+      }
+      // `fresh` carries the authoritative tenant summary at entry time.
+      this.support.enter({ grant: fresh, tenant: fresh.tenant });
+      await this.router.navigateByUrl('/app/dashboard');
+    } catch {
+      // The global interceptor reports the failure.
+    } finally {
+      this.enteringId.set(null);
+    }
+  }
+
+  async revoke(grant: SupportGrant): Promise<void> {
+    const detail = this.tenant();
+    if (!detail || this.revokingId()) return;
+
+    const confirmed = await this.confirm.confirm({
+      title: this.transloco.translate('support.list.revokeTitle'),
+      message: this.transloco.translate('support.list.revokeMessage'),
+      confirmLabel: this.transloco.translate('support.list.revoke'),
+      cancelLabel: this.transloco.translate('common.cancel'),
+      danger: true,
+    });
+    if (!confirmed) return;
+
+    this.revokingId.set(grant.id);
+    try {
+      await firstValueFrom(
+        this.api.post<SupportGrant>(`/platform/support-grants/${grant.id}/revoke`),
+      );
+      if (this.lastCreated()?.id === grant.id) this.lastCreated.set(null);
+      this.toast.success(this.transloco.translate('support.list.revoked'));
+      await this.loadGrants(detail.id);
+    } catch {
+      // The global interceptor reports the failure.
+    } finally {
+      this.revokingId.set(null);
+    }
+  }
+
+  private async loadGrants(id: string): Promise<void> {
+    this.loadingGrants.set(true);
+    try {
+      const response = await firstValueFrom(
+        this.api.list<SupportGrant>('/platform/support-grants', {
+          tenantId: id,
+          page: 1,
+          pageSize: 10,
+        }),
+      );
+      this.grants.set(response.data);
+    } catch {
+      this.grants.set([]);
+    } finally {
+      this.loadingGrants.set(false);
+    }
+  }
+
   private async load(id: string): Promise<void> {
     this.loading.set(true);
     this.error.set(false);
@@ -292,6 +586,7 @@ export class PlatformTenantPage {
         this.api.get<PlatformTenantDetail>(`/platform/tenants/${id}`),
       );
       this.tenant.set(detail);
+      await this.loadGrants(id);
     } catch {
       this.tenant.set(null);
       this.error.set(true);
