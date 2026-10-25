@@ -9,6 +9,7 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js';
 import { FeatureGuard } from './common/guards/feature.guard.js';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard.js';
 import { PermissionsGuard } from './common/guards/permissions.guard.js';
+import { SupportAccessGuard } from './common/guards/support-access.guard.js';
 import { TenantStateGuard } from './common/guards/tenant-state.guard.js';
 import { PrismaModule } from './database/prisma.module.js';
 import { InfrastructureModule } from './infrastructure/infrastructure.module.js';
@@ -78,6 +79,9 @@ import { TrashModule } from './modules/trash/trash.module.js';
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    // Support grants swap the platform session for a read-only tenant session,
+    // so they must run before tenant state is evaluated for the target tenant.
+    { provide: APP_GUARD, useClass: SupportAccessGuard },
     // Tenant state must run before the feature guard so a suspended tenant reads
     // as TENANT_SUSPENDED rather than FEATURE_NOT_IN_PLAN.
     { provide: APP_GUARD, useClass: TenantStateGuard },
