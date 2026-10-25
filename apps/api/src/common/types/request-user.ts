@@ -8,6 +8,7 @@ export interface RequestUser {
   isPlatformAdmin: boolean;
   tenantId?: string;
   membershipId?: string;
+  supportGrantId?: string;
   branchId?: string | null;
   role?: Role;
   permissions: string[];

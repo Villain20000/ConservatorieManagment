@@ -23,6 +23,8 @@ export type Permission =
   | 'reports.read'
   | 'announcements.read'
   | 'announcements.write'
+  | 'privacy.read'
+  | 'privacy.manage'
   | 'settings.manage'
   | 'portal.read'
   | 'platform.manage';

@@ -447,6 +447,7 @@ model SubscriptionInvoice {
   payments     SubscriptionPayment[]
 
   @@unique([subscriptionId, number])
+  @@unique([subscriptionId, periodStart])
   @@index([status, dueAt])
   @@map("subscription_invoices")
 }
