@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Post } from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator.js';
 import { PERMISSIONS } from '../../common/permissions.js';
@@ -21,7 +21,7 @@ export class TenantSupportAccessController {
   }
 
   @Post(':id/revoke')
-  revoke(@Param('id') id: string) {
+  revoke(@Param('id', ParseUUIDPipe) id: string) {
     return this.service.revokeForTenant(this.tenant.tenantId, id);
   }
 }

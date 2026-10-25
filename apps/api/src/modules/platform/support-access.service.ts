@@ -55,7 +55,7 @@ export class SupportAccessService {
     });
 
     await this.audit.recordForTenant(
-      dto.tenantId,
+      grant.tenantId,
       'support_access.granted',
       'SupportAccessGrant',
       grant.id,
@@ -136,15 +136,24 @@ export class SupportAccessService {
     }
 
     const revokedById = this.actorId();
-    const revoked = await this.prisma.supportAccessGrant.update({
-      where: { id: grant.id },
+    // Status-conditioned update so concurrent revokes cannot both transition
+    // the grant (and both write an audit row).
+    const { count } = await this.prisma.supportAccessGrant.updateMany({
+      where: { id: grant.id, status: SupportAccessStatus.ACTIVE },
       data: {
         status: SupportAccessStatus.REVOKED,
         revokedAt: new Date(),
         revokedById,
       },
-      include: grantInclude,
     });
+
+    if (count === 0) {
+      // Lost the race: another request revoked (or the guard expired) it.
+      return this.prisma.supportAccessGrant.findUniqueOrThrow({
+        where: { id: grant.id },
+        include: grantInclude,
+      });
+    }
 
     await this.audit.recordForTenant(
       tenantId,
@@ -154,7 +163,10 @@ export class SupportAccessService {
       { ticketRef: grant.ticketRef },
     );
 
-    return revoked;
+    return this.prisma.supportAccessGrant.findUniqueOrThrow({
+      where: { id: grant.id },
+      include: grantInclude,
+    });
   }
 
   private actorId(): string {

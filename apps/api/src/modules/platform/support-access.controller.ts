@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { RequirePermissions } from '../../common/decorators/permissions.decorator.js';
 import { PERMISSIONS } from '../../common/permissions.js';
@@ -26,12 +34,12 @@ export class SupportAccessController {
   }
 
   @Get(':id')
-  get(@Param('id') id: string) {
+  get(@Param('id', ParseUUIDPipe) id: string) {
     return this.service.get(id);
   }
 
   @Post(':id/revoke')
-  revoke(@Param('id') id: string) {
+  revoke(@Param('id', ParseUUIDPipe) id: string) {
     return this.service.revoke(id);
   }
 }

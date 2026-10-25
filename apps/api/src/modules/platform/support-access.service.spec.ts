@@ -42,9 +42,10 @@ function createHarness() {
       create: vi.fn(),
       findMany: vi.fn(),
       findUnique: vi.fn(),
+      findUniqueOrThrow: vi.fn(),
       findFirst: vi.fn(),
       count: vi.fn(),
-      update: vi.fn(),
+      updateMany: vi.fn(),
     },
   };
   const cls = { get: vi.fn() };
@@ -215,19 +216,33 @@ describe('SupportAccessService', () => {
       revokedAt: new Date('2026-10-25T11:30:00Z'),
       revokedById: ACTOR.id,
     });
-    harness.prisma.supportAccessGrant.findUnique.mockResolvedValue(active);
-    harness.prisma.supportAccessGrant.update.mockResolvedValue(revoked);
+    harness.prisma.supportAccessGrant.findUnique
+      .mockResolvedValueOnce(active)
+      .mockResolvedValueOnce(revoked);
+    harness.prisma.supportAccessGrant.updateMany.mockResolvedValue({ count: 1 });
+    harness.prisma.supportAccessGrant.findUniqueOrThrow.mockResolvedValue(
+      revoked,
+    );
 
     const result = await harness.service.revoke(GRANT_ID);
 
-    expect(result.status).toBe('REVOKED');
-    expect(harness.prisma.supportAccessGrant.update).toHaveBeenCalledWith(
+    expect(result).toBe(revoked);
+    expect(harness.prisma.supportAccessGrant.updateMany).toHaveBeenCalledWith({
+      where: { id: GRANT_ID, status: 'ACTIVE' },
+      data: {
+        status: 'REVOKED',
+        revokedAt: expect.any(Date),
+        revokedById: ACTOR.id,
+      },
+    });
+    expect(
+      harness.prisma.supportAccessGrant.findUniqueOrThrow,
+    ).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: GRANT_ID },
-        data: expect.objectContaining({
-          status: 'REVOKED',
-          revokedById: ACTOR.id,
-          revokedAt: expect.any(Date),
+        include: expect.objectContaining({
+          tenant: expect.any(Object),
+          actor: expect.any(Object),
         }),
       }),
     );
@@ -241,12 +256,47 @@ describe('SupportAccessService', () => {
     );
 
     // Repeating the revoke is idempotent: no second update and no second audit.
-    harness.prisma.supportAccessGrant.findUnique.mockResolvedValue(revoked);
     const repeated = await harness.service.revoke(GRANT_ID);
 
     expect(repeated.status).toBe('REVOKED');
-    expect(harness.prisma.supportAccessGrant.update).toHaveBeenCalledTimes(1);
+    expect(harness.prisma.supportAccessGrant.updateMany).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(
+      harness.prisma.supportAccessGrant.findUniqueOrThrow,
+    ).toHaveBeenCalledTimes(1);
     expect(harness.audit.recordForTenant).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not audit when a concurrent revoke wins the transition', async () => {
+    const harness = createHarness();
+    // The in-memory read still sees ACTIVE, but by update time the row was
+    // revoked (or expired) elsewhere, so updateMany matches nothing.
+    harness.prisma.supportAccessGrant.findUnique.mockResolvedValue(grantRow());
+    const current = grantRow({ status: 'REVOKED' });
+    harness.prisma.supportAccessGrant.updateMany.mockResolvedValue({ count: 0 });
+    harness.prisma.supportAccessGrant.findUniqueOrThrow.mockResolvedValue(
+      current,
+    );
+
+    const result = await harness.service.revoke(GRANT_ID);
+
+    expect(result).toBe(current);
+    expect(harness.prisma.supportAccessGrant.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: GRANT_ID, status: 'ACTIVE' } }),
+    );
+    expect(
+      harness.prisma.supportAccessGrant.findUniqueOrThrow,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: GRANT_ID },
+        include: expect.objectContaining({
+          tenant: expect.any(Object),
+          actor: expect.any(Object),
+        }),
+      }),
+    );
+    expect(harness.audit.recordForTenant).not.toHaveBeenCalled();
   });
 
   it('does not revoke or audit a grant that already expired', async () => {
@@ -257,7 +307,12 @@ describe('SupportAccessService', () => {
     const result = await harness.service.revoke(GRANT_ID);
 
     expect(result.status).toBe('EXPIRED');
-    expect(harness.prisma.supportAccessGrant.update).not.toHaveBeenCalled();
+    expect(
+      harness.prisma.supportAccessGrant.updateMany,
+    ).not.toHaveBeenCalled();
+    expect(
+      harness.prisma.supportAccessGrant.findUniqueOrThrow,
+    ).not.toHaveBeenCalled();
     expect(harness.audit.recordForTenant).not.toHaveBeenCalled();
   });
 
@@ -291,19 +346,26 @@ describe('SupportAccessService', () => {
         where: { id: GRANT_ID, tenantId: OTHER_TENANT_ID },
       }),
     );
-    expect(harness.prisma.supportAccessGrant.update).not.toHaveBeenCalled();
+    expect(
+      harness.prisma.supportAccessGrant.updateMany,
+    ).not.toHaveBeenCalled();
     expect(harness.audit.recordForTenant).not.toHaveBeenCalled();
   });
 
   it('audits a tenant revoke for the grant tenant, not the session tenant', async () => {
     const harness = createHarness();
     harness.prisma.supportAccessGrant.findFirst.mockResolvedValue(grantRow());
-    harness.prisma.supportAccessGrant.update.mockResolvedValue(
+    harness.prisma.supportAccessGrant.updateMany.mockResolvedValue({ count: 1 });
+    harness.prisma.supportAccessGrant.findUniqueOrThrow.mockResolvedValue(
       grantRow({ status: 'REVOKED' }),
     );
 
-    await harness.service.revokeForTenant(OTHER_TENANT_ID, GRANT_ID);
+    const result = await harness.service.revokeForTenant(
+      OTHER_TENANT_ID,
+      GRANT_ID,
+    );
 
+    expect(result.status).toBe('REVOKED');
     // The grant row still carries TENANT_ID; the caller-supplied tenant is only
     // the lookup scope, so the audit must follow the grant itself.
     expect(harness.audit.recordForTenant).toHaveBeenCalledWith(

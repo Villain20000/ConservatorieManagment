@@ -142,6 +142,14 @@ describe('Support access API (e2e)', () => {
     expect(Array.isArray(response.body.data)).toBe(true);
     expect(response.body.data.length).toBeGreaterThan(0);
     expect(response.body.data[0].id).toEqual(expect.any(String));
+    // The support session must be scoped to the grant's tenant: every student
+    // row the tenant endpoint returns belongs to armonia.
+    expect(
+      response.body.data.every(
+        (student: { tenantId: string }) =>
+          student.tenantId === primaryGrant.tenantId,
+      ),
+    ).toBe(true);
 
     const stored = await prisma.supportAccessGrant.findUniqueOrThrow({
       where: { id: primaryGrant.id },
@@ -302,6 +310,34 @@ describe('Support access API (e2e)', () => {
     expect(started).not.toBeNull();
     expect(started?.actorId).toBe(superadminId);
 
+    // A second authenticated read with the same grant must not re-stamp first
+    // use or write a second support_access.started row.
+    const before = await prisma.supportAccessGrant.findUniqueOrThrow({
+      where: { id: primaryGrant.id },
+      select: { usedAt: true },
+    });
+    expect(before.usedAt).not.toBeNull();
+
+    const secondUse = await request(server)
+      .get('/api/students?pageSize=5')
+      .set(bearer(superToken))
+      .set('x-support-grant', primaryGrant.id);
+    expect(secondUse.status).toBe(200);
+
+    const after = await prisma.supportAccessGrant.findUniqueOrThrow({
+      where: { id: primaryGrant.id },
+      select: { usedAt: true },
+    });
+    expect(after.usedAt?.getTime()).toBe(before.usedAt?.getTime());
+
+    const startedCount = await prisma.auditLog.count({
+      where: {
+        action: 'support_access.started',
+        entityId: primaryGrant.id,
+      },
+    });
+    expect(startedCount).toBe(1);
+
     const platformAudit = await prisma.auditLog.findFirst({
       where: { tenantId: null, entityId: primaryGrant.id },
     });
@@ -340,6 +376,14 @@ describe('Support access API (e2e)', () => {
       .get('/api/platform/support-grants/00000000-0000-4000-8000-000000000000')
       .set(bearer(superToken))
       .expect(404);
+  });
+
+  it('rejects a malformed grant id on a platform path with 400', async () => {
+    const response = await request(server)
+      .get('/api/platform/support-grants/not-a-uuid')
+      .set(bearer(superToken));
+
+    expect(response.status).toBe(400);
   });
 
   it('lets the target director list and revoke, and hides the grant from another tenant', async () => {
