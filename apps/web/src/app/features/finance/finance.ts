@@ -15,11 +15,12 @@ import type {
   Payment,
   Student,
   StudentLedger,
+  MyDataTransmission,
 } from '../../core/models';
 import { ToastService } from '../../core/toast.service';
 import { SHARED_IMPORTS } from '../../shared/shared.imports';
 
-type FinanceTab = 'overview' | 'payments';
+type FinanceTab = 'overview' | 'payments' | 'mydata';
 
 @Component({
   selector: 'app-finance-page',
@@ -339,6 +340,7 @@ type FinanceTab = 'overview' | 'payments';
                       </td>
                       <td><app-status-badge [status]="payment.status" /></td>
                       <td>
+                        @if (canWrite() && payment.status === 'POSTED') {<button type="button" class="btn-ghost btn-icon-sm" (click)="transmitPayment(payment); $event.stopPropagation()" [attr.aria-label]="'finance.mydata.transmit' | transloco" [title]="'finance.mydata.transmit' | transloco"><app-icon name="badge-check" [size]="15" /></button>}
                         <button
                           type="button"
                           class="btn-ghost btn-icon-sm"
@@ -363,6 +365,126 @@ type FinanceTab = 'overview' | 'payments';
             </div>
           }
         </section>
+      @if (tab() === 'mydata') {
+        <section class="stagger space-y-4">
+          <div class="card border-l-4 border-accent p-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 class="flex items-center gap-2 text-[15px] font-semibold text-ink">
+                  <app-icon name="badge-check" [size]="18" class="text-accent" />
+                  {{ 'finance.mydata.title' | transloco }}
+                </h3>
+                <p class="mt-0.5 text-[12.5px] text-ink-2">
+                  {{ 'finance.mydata.subtitle' | transloco }}
+                </p>
+              </div>
+              <span class="badge badge-accent">
+                {{ 'finance.mydata.article22Exempt' | transloco }}
+              </span>
+            </div>
+          </div>
+
+          @if (loadingMyData()) {
+            <div class="card p-6">
+              <div class="skeleton h-5 w-48"></div>
+              <div class="skeleton mt-4 h-64 w-full"></div>
+            </div>
+          } @else if (mydataTransmissions().length === 0) {
+            <div class="card">
+              <app-empty-state
+                title="finance.mydata.empty"
+                message="finance.mydata.subtitle"
+                icon="receipt"
+              />
+            </div>
+          } @else {
+            <div class="table-wrap">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>{{ 'finance.mydata.mark' | transloco }}</th>
+                    <th>{{ 'finance.table.type' | transloco }}</th>
+                    <th>{{ 'finance.mydata.seriesAa' | transloco }}</th>
+                    <th>{{ 'finance.table.date' | transloco }}</th>
+                    <th>{{ 'finance.mydata.counterparty' | transloco }}</th>
+                    <th>{{ 'finance.mydata.net' | transloco }}</th>
+                    <th>{{ 'finance.mydata.vat' | transloco }}</th>
+                    <th>{{ 'finance.mydata.gross' | transloco }}</th>
+                    <th>{{ 'finance.mydata.status' | transloco }}</th>
+                    <th>{{ 'common.actions' | transloco }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (t of mydataTransmissions(); track t.id) {
+                    <tr>
+                      <td class="font-mono text-[12px] font-semibold text-accent-strong">
+                        {{ t.mark || '—' }}
+                      </td>
+                      <td>
+                        <span class="badge badge-neutral">
+                          {{ t.invoiceType === '11.2' ? '11.2 (ΑΠΥ)' : t.invoiceType === '2.1' ? '2.1 (ΤΠΥ)' : t.invoiceType }}
+                        </span>
+                      </td>
+                      <td class="font-mono text-[12px]">
+                        {{ t.series }} - {{ t.aa }}
+                      </td>
+                      <td class="whitespace-nowrap">{{ format.date(t.issueDate) }}</td>
+                      <td class="font-medium text-ink">{{ t.counterpartyName || '—' }}</td>
+                      <td class="tabular-nums">{{ format.money(t.totalNet) }}</td>
+                      <td class="tabular-nums text-ink-3">
+                        {{ format.money(t.totalVat) }}
+                        <span class="block text-[10px] font-medium text-accent-strong">Άρθρο 22</span>
+                      </td>
+                      <td class="tabular-nums font-semibold">{{ format.money(t.totalGross) }}</td>
+                      <td>
+                        <span
+                          class="badge"
+                          [class]="t.statusCode === 'CONFIRMED' || t.statusCode === 'SUBMITTED' ? 'badge-success' : 'badge-danger'"
+                        >
+                          {{ t.statusCode }}
+                        </span>
+                      </td>
+                      <td>
+                        <div class="flex items-center gap-1">
+                          @if (t.qrCodeUrl) {
+                            <a
+                              [href]="t.qrCodeUrl"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              class="btn-ghost btn-icon-sm"
+                              [title]="'finance.mydata.qrCode' | transloco"
+                            >
+                              <app-icon name="external" [size]="15" />
+                            </a>
+                          }
+                          <button
+                            type="button"
+                            class="btn-ghost btn-icon-sm"
+                            (click)="selectedTransmission.set(t)"
+                            [title]="'finance.mydata.viewXml' | transloco"
+                          >
+                            <app-icon name="file-text" [size]="15" />
+                          </button>
+                          @if (canWrite() && t.statusCode !== 'CANCELLED') {
+                            <button
+                              type="button"
+                              class="btn-ghost btn-icon-sm text-danger hover:bg-danger-soft"
+                              (click)="cancelTransmission(t)"
+                              [title]="'finance.mydata.cancel' | transloco"
+                            >
+                              <app-icon name="x" [size]="15" />
+                            </button>
+                          }
+                        </div>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </section>
+      }
       }
     </div>
 
@@ -549,7 +671,42 @@ type FinanceTab = 'overview' | 'payments';
       </div>
     </app-drawer>
 
-    <app-drawer
+        <app-drawer
+      [open]="selectedTransmission() !== null"
+      title="finance.mydata.viewXml"
+      size="lg"
+      (closed)="selectedTransmission.set(null)"
+    >
+      @if (selectedTransmission(); as tx) {
+        <div class="space-y-4">
+          <div class="rounded-xl border border-line bg-surface-2 p-4">
+            <div class="grid grid-cols-2 gap-3 text-[12.5px]">
+              <div><span class="text-ink-3">MARK:</span> <span class="font-mono font-semibold">{{ tx.mark }}</span></div>
+              <div><span class="text-ink-3">UID:</span> <span class="block truncate font-mono text-[11px]">{{ tx.uid }}</span></div>
+              <div><span class="text-ink-3">{{ 'finance.mydata.seriesAa' | transloco }}:</span> {{ tx.series }} - {{ tx.aa }}</div>
+              <div><span class="text-ink-3">{{ 'finance.table.date' | transloco }}:</span> {{ format.date(tx.issueDate) }}</div>
+              <div><span class="text-ink-3">{{ 'finance.mydata.gross' | transloco }}:</span> <span class="font-semibold">{{ format.money(tx.totalGross) }}</span></div>
+              <div><span class="text-ink-3">{{ 'finance.mydata.vat' | transloco }}:</span> {{ 'finance.mydata.article22Exempt' | transloco }}</div>
+            </div>
+            @if (tx.qrCodeUrl) {
+              <div class="mt-4 border-t border-line pt-3">
+                <a [href]="tx.qrCodeUrl" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm w-full">
+                  <app-icon name="external" [size]="14" />
+                  {{ 'finance.mydata.qrCode' | transloco }}
+                </a>
+              </div>
+            }
+          </div>
+
+          <div>
+            <label class="label text-[12px] font-semibold text-ink-2">AADE InvoicesDoc XML</label>
+            <pre class="mt-1 max-h-96 overflow-auto rounded-lg border border-line bg-surface-3 p-3 font-mono text-[11px] leading-relaxed text-ink">{{ tx.payloadXml }}</pre>
+          </div>
+        </div>
+      }
+    </app-drawer>
+
+<app-drawer
       [open]="chargeOpen()"
       title="finance.chargeForm.title"
       subtitle="finance.chargeForm.hint"
@@ -726,6 +883,9 @@ export class FinancePage {
   readonly ledgerOpen = signal(false);
   readonly ledgerLoading = signal(false);
   readonly ledger = signal<StudentLedger | null>(null);
+  readonly mydataTransmissions = signal<MyDataTransmission[]>([]);
+  readonly loadingMyData = signal(false);
+  readonly selectedTransmission = signal<MyDataTransmission | null>(null);
 
   readonly students = signal<Student[]>([]);
   readonly chargeOpen = signal(false);
@@ -767,6 +927,7 @@ export class FinancePage {
   readonly tabs: { value: FinanceTab; key: string }[] = [
     { value: 'overview', key: 'finance.tabs.overview' },
     { value: 'payments', key: 'finance.tabs.payments' },
+    { value: 'mydata', key: 'finance.tabs.mydata' },
   ];
 
   readonly debtors = computed(() => {
@@ -856,6 +1017,9 @@ export class FinancePage {
     this.tab.set(tab);
     if (tab === 'payments' && !this.paymentsLoaded() && !this.loadingPayments()) {
       void this.loadPayments();
+    }
+    if (tab === 'mydata') {
+      void this.loadMyData();
     }
   }
 
@@ -1027,6 +1191,54 @@ export class FinancePage {
       saveBlob(blob, `apodeixi-${payment.receiptNumber}.pdf`);
     } catch {
       // The global error interceptor reports the failure.
+    }
+  }
+
+  async loadMyData(): Promise<void> {
+    this.loadingMyData.set(true);
+    try {
+      const res = await firstValueFrom(
+        this.api.list<MyDataTransmission>('/finance/mydata/transmissions'),
+      );
+      this.mydataTransmissions.set(res.data);
+    } catch {
+      this.toast.error('common.error');
+    } finally {
+      this.loadingMyData.set(false);
+    }
+  }
+
+  async transmitPayment(payment: Payment): Promise<void> {
+    try {
+      await firstValueFrom(
+        this.api.post(`/finance/mydata/transmit/${payment.id}`, {}),
+      );
+      this.toast.success('finance.mydata.transmittedSuccess');
+      if (this.tab() === 'mydata') {
+        await this.loadMyData();
+      }
+    } catch (err: any) {
+      this.toast.error(err?.error?.message || 'common.error');
+    }
+  }
+
+  async cancelTransmission(transmission: MyDataTransmission): Promise<void> {
+    const confirmed = await this.confirm.confirm({
+      title: 'finance.mydata.cancel',
+      message: 'finance.mydata.cancelConfirm',
+      danger: true,
+    });
+    if (!confirmed) return;
+    try {
+      await firstValueFrom(
+        this.api.post(`/finance/mydata/transmissions/${transmission.id}/cancel`, {
+          reason: 'Cancelled by administrator',
+        }),
+      );
+      this.toast.success('finance.mydata.cancelledSuccess');
+      await this.loadMyData();
+    } catch {
+      this.toast.error('common.error');
     }
   }
 

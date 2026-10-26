@@ -45,6 +45,12 @@ export class ScheduleController {
     return this.scheduling.createCalendarDay(dto);
   }
 
+  @Post('calendar/seed-greek')
+  @RequirePermissions(PERMISSIONS.SCHEDULE_WRITE)
+  seedGreekHolidays(@Body() body: { year?: number }) {
+    return this.scheduling.seedGreekHolidays(body.year);
+  }
+
   @Delete('calendar/:id')
   @RequirePermissions(PERMISSIONS.SCHEDULE_WRITE)
   removeCalendarDay(@Param('id') id: string) {

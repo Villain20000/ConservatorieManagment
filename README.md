@@ -24,6 +24,25 @@ playwright.config.ts
 docker-compose.yml
 ```
 
+## Architectural Documentation
+
+The platform architecture and specifications are documented across dedicated records:
+
+| Document | Purpose & Scope |
+| --- | --- |
+| [PRODUCT_REQUIREMENTS.md](PRODUCT_REQUIREMENTS.md) | Domain analysis, full capabilities across 6 roles, and module specs |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | System design, NestJS modular monolith, Angular zoneless signals |
+| [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md) | PostgreSQL 17 relational model, UUIDv7, composite FKs, integer cents |
+| [API_SPECIFICATION.md](API_SPECIFICATION.md) | REST API contract, endpoints, DTOs, query parameters, error responses |
+| [RBAC_MATRIX.md](RBAC_MATRIX.md) | Permission keys, role mapping, support access grant rules |
+| [TENANCY_SECURITY.md](TENANCY_SECURITY.md) | Cryptographic multi-tenancy, JWT/cookies, GDPR & minors privacy |
+| [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) | Visual design tokens, 26 reusable components, WCAG 2.2 AA standards |
+| [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md) | Implementation backlog across Phases 0–5, dependency graph |
+| [TESTING_STRATEGY.md](TESTING_STRATEGY.md) | Testing pyramid: unit, integration, API e2e, and Playwright suites |
+| [DEPLOYMENT.md](DEPLOYMENT.md) | Docker Compose, production deployment, Caddy proxy, backup runbooks |
+| [DECISIONS.md](DECISIONS.md) | Architecture Decision Records (ADRs 001–010) |
+| [docs/PHASE0_AUDIT.md](docs/PHASE0_AUDIT.md) | Initial baseline audit and gap analysis |
+
 ## Quick start
 
 Requirements: Node.js >= 22.22, Docker.

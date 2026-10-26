@@ -18,11 +18,14 @@ import { AnnouncementsModule } from './modules/announcements/announcements.modul
 import { AssignmentsModule } from './modules/assignments/assignments.module.js';
 import { AttendanceModule } from './modules/attendance/attendance.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
+import { CrmModule } from './modules/crm/crm.module.js';
 import { DashboardModule } from './modules/dashboard/dashboard.module.js';
 import { DocumentsModule } from './modules/documents/documents.module.js';
+import { EventsModule } from './modules/events/events.module.js';
 import { ExamsModule } from './modules/exams/exams.module.js';
 import { FinanceModule } from './modules/finance/finance.module.js';
 import { HealthModule } from './modules/health/health.module.js';
+import { InventoryModule } from './modules/inventory/inventory.module.js';
 import { PeopleModule } from './modules/people/people.module.js';
 import { PlatformModule } from './modules/platform/platform.module.js';
 import { PortalModule } from './modules/portal/portal.module.js';
@@ -64,6 +67,7 @@ import { TrashModule } from './modules/trash/trash.module.js';
     TenantsModule,
     AcademicsModule,
     PeopleModule,
+    CrmModule,
     SchedulingModule,
     AttendanceModule,
     AnnouncementsModule,
@@ -72,6 +76,8 @@ import { TrashModule } from './modules/trash/trash.module.js';
     FinanceModule,
     ExamsModule,
     DocumentsModule,
+    EventsModule,
+    InventoryModule,
     PlatformModule,
     PortalModule,
     TrashModule,

@@ -27,7 +27,17 @@ export type Permission =
   | 'privacy.manage'
   | 'settings.manage'
   | 'portal.read'
-  | 'platform.manage';
+  | 'platform.manage'
+  | 'crm.read'
+  | 'crm.write'
+  | 'events.read'
+  | 'events.write'
+  | 'events.curate'
+  | 'events.checkin'
+  | 'inventory.read'
+  | 'inventory.write'
+  | 'inventory.loan'
+  | 'inventory.maintain';
 
 export type StudentStatus = 'ACTIVE' | 'INACTIVE' | 'GRADUATED' | 'ARCHIVED';
 export type TeacherStatus = 'ACTIVE' | 'INACTIVE' | 'ARCHIVED';
@@ -927,3 +937,408 @@ export interface PortalAssignment {
   teacher?: { id: string; firstName: string; lastName: string } | null;
   submission: AssignmentSubmission | null;
 }
+
+export type LeadStage =
+  | 'NEW'
+  | 'CONTACTED'
+  | 'TRIAL_BOOKED'
+  | 'TRIAL_COMPLETED'
+  | 'OFFER_SENT'
+  | 'ENROLLED'
+  | 'LOST';
+
+export type LeadSource =
+  | 'WEB_FORM'
+  | 'PHONE'
+  | 'WALK_IN'
+  | 'REFERRAL'
+  | 'CAMPAIGN'
+  | 'SOCIAL'
+  | 'OTHER';
+
+export type LeadActivityType =
+  | 'NOTE'
+  | 'CALL'
+  | 'EMAIL'
+  | 'MEETING'
+  | 'STAGE_CHANGE'
+  | 'TRIAL_SCHEDULED'
+  | 'FOLLOW_UP'
+  | 'CONVERSION';
+
+export interface LeadActivity {
+  id: string;
+  tenantId: string;
+  leadId: string;
+  actorId: string | null;
+  type: LeadActivityType;
+  fromStage: LeadStage | null;
+  toStage: LeadStage | null;
+  body: string | null;
+  createdAt: string;
+  actor?: {
+    id: string;
+    email: string;
+  } | null;
+}
+
+export interface Lead {
+  id: string;
+  tenantId: string;
+  branchId: string;
+  studentFirstName: string;
+  studentLastName: string;
+  birthDate: string | null;
+  contactName: string;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  relationship: string | null;
+  source: LeadSource;
+  stage: LeadStage;
+  programId: string | null;
+  notes: string | null;
+  assignedToId: string | null;
+  nextFollowUpAt: string | null;
+  lostReason: string | null;
+  consentAt: string | null;
+  convertedStudentId: string | null;
+  convertedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  branch?: { id: string; name: string; code: string };
+  program?: { id: string; name: string; color?: string | null };
+  assignedTo?: { id: string; email: string };
+  activities?: LeadActivity[];
+}
+
+
+export type EventType =
+  | 'CONCERT'
+  | 'RECITAL'
+  | 'MASTERCLASS'
+  | 'AUDITION'
+  | 'EXAM_SESSION'
+  | 'WORKSHOP'
+  | 'COMPETITION';
+
+export type EventStatus =
+  | 'DRAFT'
+  | 'SCHEDULED'
+  | 'REGISTRATION_OPEN'
+  | 'REGISTRATION_CLOSED'
+  | 'IN_PROGRESS'
+  | 'COMPLETED'
+  | 'CANCELLED';
+
+export type PerformanceStatus =
+  | 'PROPOSED'
+  | 'CONFIRMED'
+  | 'STANDBY'
+  | 'PERFORMED'
+  | 'WITHDRAWN';
+
+export type RegistrationStatus =
+  | 'REGISTERED'
+  | 'WAITLISTED'
+  | 'CHECKED_IN'
+  | 'CANCELLED'
+  | 'NO_SHOW';
+
+export type RsvpStatus = 'ATTENDING' | 'DECLINED' | 'TENTATIVE';
+
+export type AssetCategory =
+  | 'GRAND_PIANO'
+  | 'UPRIGHT_PIANO'
+  | 'DIGITAL_PIANO'
+  | 'STRING_INSTRUMENT'
+  | 'WOODWIND'
+  | 'BRASS'
+  | 'PERCUSSION'
+  | 'PLUCKED_STRING'
+  | 'AUDIO_EQUIPMENT'
+  | 'STAGE_ACCESSORY';
+
+export type AssetCondition =
+  | 'PRISTINE'
+  | 'EXCELLENT'
+  | 'GOOD'
+  | 'FAIR'
+  | 'POOR'
+  | 'NEEDS_REPAIR'
+  | 'UNUSABLE';
+
+export type AssetStatus =
+  | 'AVAILABLE'
+  | 'IN_USE_STUDIO'
+  | 'ON_LOAN'
+  | 'RESERVED_EVENT'
+  | 'IN_MAINTENANCE'
+  | 'DECOMMISSIONED'
+  | 'LOST';
+
+export type LoanStatus =
+  | 'DRAFT'
+  | 'ACTIVE'
+  | 'RETURN_OVERDUE'
+  | 'RETURNED'
+  | 'DAMAGED_RETURN'
+  | 'LOST';
+
+export type MaintenanceType =
+  | 'PIANO_TUNING'
+  | 'VOICING_REGULATION'
+  | 'RESTRINGING'
+  | 'LUTHIER_REPAIR'
+  | 'PAD_REPLACEMENT'
+  | 'CLEANING_OVERHAUL'
+  | 'ELECTRICAL_SAFETY'
+  | 'ROUTINE_INSPECTION';
+
+export type MaintenanceStatus = 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+
+export interface EventPerformance {
+  id: string;
+  tenantId: string;
+  eventId: string;
+  orderIndex: number;
+  part: number;
+  studentId: string | null;
+  teacherId: string | null;
+  accompanistTeacherId: string | null;
+  performerDisplayName: string;
+  pieceTitle: string;
+  composer: string;
+  movement: string | null;
+  durationSeconds: number;
+  actualDurationSeconds: number | null;
+  stageNotes: string | null;
+  status: PerformanceStatus;
+  isEnsemble: boolean;
+  ensembleName: string | null;
+  additionalPerformerIds: string[];
+  stagePosition: string | null;
+  createdAt: string;
+  updatedAt: string;
+  student?: { id: string; firstName: string; lastName: string; registrationNumber: string } | null;
+  teacher?: { id: string; firstName: string; lastName: string } | null;
+  accompanistTeacher?: { id: string; firstName: string; lastName: string } | null;
+}
+
+export interface EventRegistration {
+  id: string;
+  tenantId: string;
+  eventId: string;
+  studentId: string | null;
+  attendeeName: string;
+  attendeeEmail: string;
+  attendeePhone: string | null;
+  ticketCode: string;
+  seatNumber: string | null;
+  isVip: boolean;
+  ticketCount: number;
+  rsvpStatus: RsvpStatus;
+  status: RegistrationStatus;
+  checkedInAt: string | null;
+  checkInNotes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EventItem {
+  id: string;
+  tenantId: string;
+  branchId: string;
+  roomId: string | null;
+  academicYearId: string | null;
+  title: string;
+  slug: string;
+  eventType: EventType;
+  status: EventStatus;
+  description: string | null;
+  startsAt: string;
+  endsAt: string;
+  doorsOpenAt: string | null;
+  maxCapacity: number;
+  isPublic: boolean;
+  requiresRegistration: boolean;
+  ticketPriceCents: number;
+  programNotes: string | null;
+  intermissionDurationMinutes: number;
+  protocolNumber: string | null;
+  createdAt: string;
+  updatedAt: string;
+  branch?: { id: string; name: string; code: string };
+  room?: { id: string; name: string; capacity: number } | null;
+  performances?: EventPerformance[];
+  registrations?: EventRegistration[];
+  _count?: {
+    performances: number;
+    registrations: number;
+  };
+}
+
+export interface AssetLoan {
+  id: string;
+  tenantId: string;
+  assetId: string;
+  studentId: string;
+  guardianId: string | null;
+  loanDate: string;
+  expectedReturnDate: string;
+  returnedAt: string | null;
+  loanFeeCents: number;
+  depositCents: number;
+  depositReturned: boolean;
+  agreementSigned: boolean;
+  protocolNumber: string | null;
+  checkoutCondition: AssetCondition;
+  checkoutAccessories: string[];
+  checkoutNotes: string | null;
+  returnCondition: AssetCondition | null;
+  returnAccessories: string[];
+  returnNotes: string | null;
+  damageFeeCents: number;
+  status: LoanStatus;
+  createdAt: string;
+  updatedAt: string;
+  student?: { id: string; firstName: string; lastName: string; registrationNumber: string };
+  guardian?: { id: string; firstName: string; lastName: string; phone: string | null } | null;
+  asset?: { id: string; assetTag: string; manufacturer: string; model: string };
+}
+
+export interface AssetMaintenance {
+  id: string;
+  tenantId: string;
+  assetId: string;
+  maintenanceType: MaintenanceType;
+  technicianName: string;
+  technicianCompany: string | null;
+  technicianPhone: string | null;
+  costCents: number;
+  serviceDate: string;
+  nextServiceDue: string | null;
+  pitchMeasuredHz: number | null;
+  pitchLeftHz: number | null;
+  humidityPercentage: number | null;
+  temperatureCelsius: number | null;
+  workPerformed: string;
+  notes: string | null;
+  invoiceNumber: string | null;
+  status: MaintenanceStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Asset {
+  id: string;
+  tenantId: string;
+  branchId: string;
+  studioRoomId: string | null;
+  assetTag: string;
+  category: AssetCategory;
+  manufacturer: string;
+  model: string;
+  serialNumber: string | null;
+  manufactureYear: number | null;
+  condition: AssetCondition;
+  status: AssetStatus;
+  purchaseDate: string | null;
+  purchaseCostCents: number | null;
+  replacementValueCents: number | null;
+  insurancePolicyNo: string | null;
+  isLoanable: boolean;
+  maxLoanDays: number;
+  requiresTuning: boolean;
+  lastTunedAt: string | null;
+  nextTuningDueAt: string | null;
+  tuningIntervalDays: number | null;
+  pitchStandardHz: number;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  branch?: { id: string; name: string; code: string };
+  studioRoom?: { id: string; name: string } | null;
+  loans?: AssetLoan[];
+  maintenance?: AssetMaintenance[];
+}
+
+export interface MyDataTransmission {
+  id: string;
+  tenantId: string;
+  paymentId: string | null;
+  chargeId: string | null;
+  invoiceType: string;
+  series: string;
+  aa: string;
+  issueDate: string;
+  mark: string | null;
+  uid: string | null;
+  qrCodeUrl: string | null;
+  vatExemptionCategory: number;
+  totalNetCents: number;
+  totalVatCents: number;
+  totalGrossCents: number;
+  totalNet: number;
+  totalVat: number;
+  totalGross: number;
+  currency: string;
+  statusCode: string;
+  counterpartyTaxId: string | null;
+  counterpartyName: string | null;
+  payloadXml: string | null;
+  errorDetails?: string | null;
+  transmittedAt: string;
+  payment?: {
+    id: string;
+    receiptNumber: string;
+    amountCents: number;
+    paidAt: string;
+    method: string;
+  } | null;
+}
+
+export interface SubscriptionInvoice {
+  id: string;
+  subscriptionId: string;
+  externalId: string;
+  number: string;
+  periodStart: string;
+  periodEnd: string;
+  subtotalCents: number;
+  taxCents: number;
+  totalCents: number;
+  subtotal: number;
+  tax: number;
+  total: number;
+  currency: string;
+  status: 'DRAFT' | 'OPEN' | 'PAID' | 'VOID' | 'UNCOLLECTIBLE';
+  dueAt: string | null;
+  paidAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  subscription?: {
+    tenant: { id: string; name: string; status: string };
+    plan: { id: string; name: string; code: string };
+  };
+  payments?: Array<{
+    id: string;
+    amountCents: number;
+    status: 'SUCCEED' | 'FAILED' | 'PENDING';
+    method: string | null;
+    attemptedAt: string;
+    failureCode?: string | null;
+  }>;
+}
+
+export interface BillingMetrics {
+  mrr: number;
+  arr: number;
+  totalInvoiced: number;
+  totalCollected: number;
+  totalOverdue: number;
+  paidInvoicesCount: number;
+  openInvoicesCount: number;
+  pastDueSubscriptionsCount: number;
+  activeSubscriptionsCount: number;
+}
+

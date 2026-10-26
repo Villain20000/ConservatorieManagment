@@ -19,6 +19,7 @@ import { SHARED_IMPORTS } from '../../shared/shared.imports';
 import { PortalChildSelectorComponent } from '../portal/portal-child-selector';
 import { MetronomeComponent } from './metronome';
 import { TunerComponent } from './tuner';
+import { EarTrainerComponent } from './ear-trainer';
 
 interface PracticeDraft {
   text: string;
@@ -36,7 +37,7 @@ const DRAFT_KEY = 'musicos.practice-draft';
  */
 @Component({
   selector: 'app-practice',
-  imports: [SHARED_IMPORTS, PortalChildSelectorComponent, MetronomeComponent, TunerComponent],
+  imports: [SHARED_IMPORTS, PortalChildSelectorComponent, MetronomeComponent, TunerComponent, EarTrainerComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="page">
@@ -85,6 +86,10 @@ const DRAFT_KEY = 'musicos.practice-draft';
       <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <app-metronome />
         <app-tuner />
+      </div>
+
+      <div class="mt-4">
+        <app-ear-trainer />
       </div>
 
       @if (isPortal()) {

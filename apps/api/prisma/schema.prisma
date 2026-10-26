@@ -325,6 +325,108 @@ enum DsarRequestStatus {
   REJECTED
 }
 
+enum EventType {
+  CONCERT
+  RECITAL
+  MASTERCLASS
+  AUDITION
+  EXAM_SESSION
+  WORKSHOP
+  COMPETITION
+}
+
+enum EventStatus {
+  DRAFT
+  SCHEDULED
+  REGISTRATION_OPEN
+  REGISTRATION_CLOSED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum PerformanceStatus {
+  PROPOSED
+  CONFIRMED
+  STANDBY
+  PERFORMED
+  WITHDRAWN
+}
+
+enum RegistrationStatus {
+  REGISTERED
+  WAITLISTED
+  CHECKED_IN
+  CANCELLED
+  NO_SHOW
+}
+
+enum RsvpStatus {
+  ATTENDING
+  DECLINED
+  TENTATIVE
+}
+
+enum AssetCategory {
+  GRAND_PIANO
+  UPRIGHT_PIANO
+  DIGITAL_PIANO
+  STRING_INSTRUMENT
+  WOODWIND
+  BRASS
+  PERCUSSION
+  PLUCKED_STRING
+  AUDIO_EQUIPMENT
+  STAGE_ACCESSORY
+}
+
+enum AssetCondition {
+  PRISTINE
+  EXCELLENT
+  GOOD
+  FAIR
+  POOR
+  NEEDS_REPAIR
+  UNUSABLE
+}
+
+enum AssetStatus {
+  AVAILABLE
+  IN_USE_STUDIO
+  ON_LOAN
+  RESERVED_EVENT
+  IN_MAINTENANCE
+  DECOMMISSIONED
+  LOST
+}
+
+enum LoanStatus {
+  DRAFT
+  ACTIVE
+  RETURN_OVERDUE
+  RETURNED
+  DAMAGED_RETURN
+  LOST
+}
+
+enum MaintenanceType {
+  PIANO_TUNING
+  VOICING_REGULATION
+  RESTRINGING
+  LUTHIER_REPAIR
+  PAD_REPLACEMENT
+  CLEANING_OVERHAUL
+  ELECTRICAL_SAFETY
+  ROUTINE_INSPECTION
+}
+
+enum MaintenanceStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
 // ───────────────────────────── Platform ─────────────────────────────
 
 model Plan {
@@ -403,6 +505,14 @@ model Tenant {
   assignmentSubmissions AssignmentSubmission[]
   leads           Lead[]
   leadActivities  LeadActivity[]
+  events          Event[]
+  eventPerformances EventPerformance[]
+  eventRegistrations EventRegistration[]
+  assets          Asset[]
+  assetLoans      AssetLoan[]
+  assetMaintenance AssetMaintenance[]
+  eventAssetReservations EventAssetReservation[]
+  myDataTransmissions MyDataTransmission[]
 
   @@map("tenants")
 }
@@ -638,6 +748,17 @@ model User {
   submissionsGraded AssignmentSubmission[] @relation("SubmissionGradedBy")
   leadsAssigned   Lead[]           @relation("LeadAssignedTo")
   leadActivities  LeadActivity[]   @relation("LeadActivityActor")
+  eventsCreated   Event[]          @relation("EventCreatedBy")
+  performancesCreated EventPerformance[] @relation("PerformanceCreatedBy")
+  registrationsCheckedIn EventRegistration[] @relation("RegistrationCheckedInBy")
+  registrationsCreated EventRegistration[] @relation("RegistrationCreatedBy")
+  assetsCreated   Asset[]          @relation("AssetCreatedBy")
+  loansInspected  AssetLoan[]      @relation("LoanInspectedBy")
+  loansCreated    AssetLoan[]      @relation("LoanCreatedBy")
+  maintenanceApproved AssetMaintenance[] @relation("MaintenanceApprovedBy")
+  maintenanceCreated AssetMaintenance[] @relation("MaintenanceCreatedBy")
+  reservationsCreated EventAssetReservation[] @relation("ReservationCreatedBy")
+  myDataTransmissionsCreated MyDataTransmission[] @relation("MyDataCreatedBy")
 
   @@map("users")
 }
@@ -731,6 +852,8 @@ model Branch {
   announcements Announcement[]
   calendarDays  CalendarDay[]
   leads         Lead[]
+  events        Event[]
+  assets        Asset[]
 
   @@unique([tenantId, code])
   @@unique([tenantId, id])
@@ -751,8 +874,10 @@ model AcademicYear {
   tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   enrollments Enrollment[]
   examPeriods ExamPeriod[]
+  events      Event[]
 
   @@unique([tenantId, name])
+  @@unique([tenantId, id])
   @@index([tenantId])
   @@map("academic_years")
 }
@@ -797,6 +922,7 @@ model Level {
   exams       Exam[]
 
   @@unique([tenantId, name])
+  @@unique([tenantId, id])
   @@index([tenantId])
   @@map("levels")
 }
@@ -815,6 +941,8 @@ model Room {
   branch       Branch        @relation(fields: [branchId], references: [id], onDelete: Cascade)
   lessonSeries LessonSeries[]
   lessons      Lesson[]
+  events       Event[]
+  studioAssets Asset[]
 
   @@unique([tenantId, branchId, name])
   @@unique([tenantId, id])
@@ -848,6 +976,8 @@ model Teacher {
   lessons     Lesson[]
   enrollments Enrollment[]
   examCommittee ExamCommitteeMember[]
+  performancesSupervised EventPerformance[] @relation("PerformanceTeacher")
+  performancesAccompanied EventPerformance[] @relation("PerformanceAccompanist")
   assignments Assignment[]
 
   @@unique([tenantId, userId])
@@ -901,6 +1031,9 @@ model Student {
   assignmentTargets AssignmentTarget[]
   assignmentSubmissions AssignmentSubmission[]
   convertedFromLead Lead[] @relation("LeadConvertedStudent")
+  eventPerformances EventPerformance[]
+  eventRegistrations EventRegistration[]
+  assetLoans       AssetLoan[]
 
   @@unique([tenantId, registrationNumber])
   @@unique([tenantId, id])
@@ -928,8 +1061,10 @@ model Guardian {
   tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user     User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
   students StudentGuardian[]
+  assetLoans AssetLoan[]
 
   @@unique([tenantId, userId])
+  @@unique([tenantId, id])
   @@index([tenantId, lastName])
   @@map("guardians")
 }
@@ -1210,6 +1345,7 @@ model Charge {
   createdBy User?    @relation("ChargeCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
   payments Payment[]
   allocations PaymentAllocation[]
+  myDataTransmissions MyDataTransmission[]
 
   @@unique([tenantId, sourceKey])
   @@unique([tenantId, id])
@@ -1242,6 +1378,7 @@ model Payment {
   recordedBy User? @relation("PaymentRecordedBy", fields: [recordedById], references: [id], onDelete: SetNull)
   voidedBy User?   @relation("PaymentVoidedBy", fields: [voidedById], references: [id], onDelete: SetNull)
   allocations PaymentAllocation[]
+  myDataTransmissions MyDataTransmission[]
 
   @@unique([tenantId, receiptNumber])
   @@index([tenantId, paidAt])
@@ -1475,6 +1612,7 @@ model ExamPeriod {
   exams        Exam[]
 
   @@unique([tenantId, name])
+  @@unique([tenantId, id])
   @@index([tenantId])
   @@map("exam_periods")
 }
@@ -1677,4 +1815,335 @@ model OutboxMessage {
 
   @@index([status, nextAttemptAt])
   @@map("outbox_messages")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Concerts, Exam Events & Asset Inventory
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Event {
+  id                         String       @id @default(uuid(7)) @db.Uuid
+  tenantId                   String       @db.Uuid
+  branchId                   String       @db.Uuid
+  roomId                     String?      @db.Uuid
+  academicYearId             String?      @db.Uuid
+  title                      String
+  slug                       String
+  eventType                  EventType    @default(CONCERT)
+  status                     EventStatus  @default(DRAFT)
+  description                String?      @db.Text
+  startsAt                   DateTime     @db.Timestamptz(3)
+  endsAt                     DateTime     @db.Timestamptz(3)
+  doorsOpenAt                DateTime?    @db.Timestamptz(3)
+  maxCapacity                Int          @default(100)
+  isPublic                   Boolean      @default(true)
+  requiresRegistration       Boolean      @default(true)
+  ticketPriceCents           Int          @default(0)
+  programNotes               String?      @db.Text
+  intermissionDurationMinutes Int         @default(15)
+  coverImageFileId           String?      @db.Uuid
+  protocolNumber             String?
+  createdById                String?      @db.Uuid
+  deletedAt                  DateTime?    @db.Timestamptz(3)
+  deletedById                String?      @db.Uuid
+  createdAt                  DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt                  DateTime     @updatedAt @db.Timestamptz(3)
+
+  // Relations
+  tenant         Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch         Branch                  @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
+  room           Room?                   @relation(fields: [tenantId, roomId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
+  academicYear   AcademicYear?           @relation(fields: [tenantId, academicYearId], references: [tenantId, id], onDelete: SetNull)
+  createdBy      User?                   @relation("EventCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  performances   EventPerformance[]
+  registrations  EventRegistration[]
+  reservations   EventAssetReservation[]
+
+  @@unique([tenantId, slug])
+  @@unique([tenantId, id])
+  @@index([tenantId, startsAt])
+  @@index([tenantId, branchId, status])
+  @@index([tenantId, eventType])
+  @@map("events")
+}
+
+model EventPerformance {
+  id                     String            @id @default(uuid(7)) @db.Uuid
+  tenantId               String            @db.Uuid
+  eventId                String            @db.Uuid
+  orderIndex             Int
+  part                   Int               @default(1)
+  studentId              String?           @db.Uuid
+  teacherId              String?           @db.Uuid
+  accompanistTeacherId   String?           @db.Uuid
+  performerDisplayName   String
+  pieceTitle             String
+  composer               String
+  movement               String?
+  durationSeconds        Int
+  actualDurationSeconds  Int?
+  stageNotes             String?           @db.Text
+  status                 PerformanceStatus @default(PROPOSED)
+  isEnsemble             Boolean           @default(false)
+  ensembleName           String?
+  additionalPerformerIds String[]          @default([])
+  stagePosition          String?
+  createdById            String?           @db.Uuid
+  deletedAt              DateTime?         @db.Timestamptz(3)
+  createdAt              DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt              DateTime          @updatedAt @db.Timestamptz(3)
+
+  // Relations
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  event              Event    @relation(fields: [tenantId, eventId], references: [tenantId, id], onDelete: Cascade)
+  student            Student? @relation(fields: [tenantId, studentId], references: [tenantId, id], onDelete: SetNull)
+  teacher            Teacher? @relation("PerformanceTeacher", fields: [tenantId, teacherId], references: [tenantId, id], onDelete: SetNull)
+  accompanistTeacher Teacher? @relation("PerformanceAccompanist", fields: [tenantId, accompanistTeacherId], references: [tenantId, id], onDelete: SetNull)
+  createdBy          User?    @relation("PerformanceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, id])
+  @@unique([eventId, part, orderIndex])
+  @@index([tenantId, eventId])
+  @@index([tenantId, studentId])
+  @@index([tenantId, teacherId])
+  @@map("event_performances")
+}
+
+model EventRegistration {
+  id             String             @id @default(uuid(7)) @db.Uuid
+  tenantId       String             @db.Uuid
+  eventId        String             @db.Uuid
+  studentId      String?            @db.Uuid
+  attendeeName   String
+  attendeeEmail  String
+  attendeePhone  String?
+  ticketCode     String
+  seatNumber     String?
+  isVip          Boolean            @default(false)
+  ticketCount    Int                @default(1)
+  rsvpStatus     RsvpStatus         @default(ATTENDING)
+  status         RegistrationStatus @default(REGISTERED)
+  checkedInAt    DateTime?          @db.Timestamptz(3)
+  checkedInById  String?            @db.Uuid
+  checkInNotes   String?
+  createdById    String?            @db.Uuid
+  createdAt      DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime           @updatedAt @db.Timestamptz(3)
+
+  // Relations
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  event       Event    @relation(fields: [tenantId, eventId], references: [tenantId, id], onDelete: Cascade)
+  student     Student? @relation(fields: [tenantId, studentId], references: [tenantId, id], onDelete: SetNull)
+  checkedInBy User?    @relation("RegistrationCheckedInBy", fields: [checkedInById], references: [id], onDelete: SetNull)
+  createdBy   User?    @relation("RegistrationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, ticketCode])
+  @@index([tenantId, eventId, status])
+  @@index([tenantId, attendeeEmail])
+  @@index([tenantId, checkedInAt])
+  @@map("event_registrations")
+}
+
+model Asset {
+  id                    String         @id @default(uuid(7)) @db.Uuid
+  tenantId              String         @db.Uuid
+  branchId              String         @db.Uuid
+  studioRoomId          String?        @db.Uuid
+  assetTag              String
+  category              AssetCategory
+  manufacturer          String
+  model                 String
+  serialNumber          String?
+  manufactureYear       Int?
+  condition             AssetCondition @default(GOOD)
+  status                AssetStatus    @default(AVAILABLE)
+  purchaseDate          DateTime?      @db.Date
+  purchaseCostCents     Int?
+  replacementValueCents Int?
+  insurancePolicyNo     String?
+  isLoanable            Boolean        @default(false)
+  maxLoanDays           Int            @default(30)
+  requiresTuning        Boolean        @default(false)
+  lastTunedAt           DateTime?      @db.Timestamptz(3)
+  nextTuningDueAt       DateTime?      @db.Timestamptz(3)
+  tuningIntervalDays    Int?           @default(90)
+  pitchStandardHz       Int            @default(442)
+  notes                 String?        @db.Text
+  photoFileId           String?        @db.Uuid
+  createdById           String?        @db.Uuid
+  deletedAt             DateTime?      @db.Timestamptz(3)
+  deletedById           String?        @db.Uuid
+  createdAt             DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime       @updatedAt @db.Timestamptz(3)
+
+  // Relations
+  tenant       Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch       Branch                  @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
+  studioRoom   Room?                   @relation(fields: [tenantId, studioRoomId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
+  createdBy    User?                   @relation("AssetCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  loans        AssetLoan[]
+  maintenance  AssetMaintenance[]
+  reservations EventAssetReservation[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, assetTag])
+  @@index([tenantId, branchId, status])
+  @@index([tenantId, category, condition])
+  @@index([tenantId, nextTuningDueAt])
+  @@map("assets")
+}
+
+model AssetLoan {
+  id                  String         @id @default(uuid(7)) @db.Uuid
+  tenantId            String         @db.Uuid
+  assetId             String         @db.Uuid
+  studentId           String         @db.Uuid
+  guardianId          String?        @db.Uuid
+  loanDate            DateTime       @db.Date
+  expectedReturnDate  DateTime       @db.Date
+  returnedAt          DateTime?      @db.Timestamptz(3)
+  loanFeeCents        Int            @default(0)
+  depositCents        Int            @default(0)
+  depositReturned     Boolean        @default(false)
+  agreementSigned     Boolean        @default(false)
+  agreementSignedAt   DateTime?      @db.Timestamptz(3)
+  agreementFileId     String?        @db.Uuid
+  protocolNumber      String?
+  checkoutCondition   AssetCondition @default(GOOD)
+  checkoutAccessories String[]       @default([])
+  checkoutNotes       String?        @db.Text
+  returnCondition     AssetCondition?
+  returnAccessories   String[]       @default([])
+  returnNotes         String?        @db.Text
+  damageFeeCents      Int            @default(0)
+  status              LoanStatus     @default(ACTIVE)
+  inspectedById       String?        @db.Uuid
+  createdById         String?        @db.Uuid
+  createdAt           DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime       @updatedAt @db.Timestamptz(3)
+
+  // Relations
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  asset       Asset     @relation(fields: [tenantId, assetId], references: [tenantId, id], onDelete: NoAction, onUpdate: NoAction)
+  student     Student   @relation(fields: [tenantId, studentId], references: [tenantId, id], onDelete: Cascade)
+  guardian    Guardian? @relation(fields: [guardianId], references: [id], onDelete: SetNull)
+  inspectedBy User?     @relation("LoanInspectedBy", fields: [inspectedById], references: [id], onDelete: SetNull)
+  createdBy   User?     @relation("LoanCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, id])
+  @@index([tenantId, assetId])
+  @@index([tenantId, studentId])
+  @@index([tenantId, status, expectedReturnDate])
+  @@map("asset_loans")
+}
+
+model AssetMaintenance {
+  id                 String            @id @default(uuid(7)) @db.Uuid
+  tenantId           String            @db.Uuid
+  assetId            String            @db.Uuid
+  maintenanceType    MaintenanceType
+  technicianName     String
+  technicianCompany  String?
+  technicianPhone    String?
+  technicianEmail    String?
+  costCents          Int               @default(0)
+  serviceDate        DateTime          @db.Date
+  nextServiceDue     DateTime?         @db.Date
+  pitchMeasuredHz    Decimal?          @db.Decimal(5, 1)
+  pitchLeftHz        Decimal?          @db.Decimal(5, 1)
+  humidityPercentage Int?
+  temperatureCelsius Decimal?          @db.Decimal(4, 1)
+  workPerformed      String            @db.Text
+  partsReplaced      String?           @db.Text
+  notes              String?           @db.Text
+  invoiceNumber      String?
+  invoiceFileId      String?           @db.Uuid
+  status             MaintenanceStatus @default(COMPLETED)
+  approvedById       String?           @db.Uuid
+  createdById        String?           @db.Uuid
+  createdAt          DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime          @updatedAt @db.Timestamptz(3)
+
+  // Relations
+  tenant     Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  asset      Asset  @relation(fields: [tenantId, assetId], references: [tenantId, id], onDelete: Cascade)
+  approvedBy User?  @relation("MaintenanceApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  createdBy  User?  @relation("MaintenanceCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, id])
+  @@index([tenantId, assetId])
+  @@index([tenantId, serviceDate])
+  @@index([tenantId, nextServiceDue])
+  @@map("asset_maintenance")
+}
+
+model EventAssetReservation {
+  id                 String    @id @default(uuid(7)) @db.Uuid
+  tenantId           String    @db.Uuid
+  eventId            String    @db.Uuid
+  assetId            String    @db.Uuid
+  purpose            String?
+  reservedFrom       DateTime  @db.Timestamptz(3)
+  reservedUntil      DateTime  @db.Timestamptz(3)
+  isReturnedToStudio Boolean   @default(false)
+  createdById        String?   @db.Uuid
+  createdAt          DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime  @updatedAt @db.Timestamptz(3)
+
+  // Relations
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  event     Event  @relation(fields: [tenantId, eventId], references: [tenantId, id], onDelete: Cascade)
+  asset     Asset  @relation(fields: [tenantId, assetId], references: [tenantId, id], onDelete: Cascade)
+  createdBy User?  @relation("ReservationCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, id])
+  @@unique([eventId, assetId])
+  @@index([tenantId, assetId, reservedFrom, reservedUntil])
+  @@map("event_asset_reservations")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Greek Statutory E-Invoicing (AADE / myDATA)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model MyDataTransmission {
+  id                    String    @id @default(uuid(7)) @db.Uuid
+  tenantId              String    @db.Uuid
+  paymentId             String?   @db.Uuid
+  chargeId              String?   @db.Uuid
+  invoiceType           String    @default("11.2")
+  series                String    @default("A")
+  aa                    String
+  issueDate             DateTime  @db.Date
+  mark                  String?
+  uid                   String?
+  qrCodeUrl             String?
+  vatExemptionCategory  Int       @default(7)
+  totalNetCents         Int
+  totalVatCents         Int       @default(0)
+  totalGrossCents       Int
+  currency              String    @default("EUR")
+  statusCode            String    @default("SUBMITTED")
+  counterpartyTaxId     String?
+  counterpartyName      String?
+  payloadXml            String?   @db.Text
+  responsePayload       Json?
+  errorDetails          String?
+  transmittedAt         DateTime  @default(now()) @db.Timestamptz(3)
+  createdById           String?   @db.Uuid
+  createdAt             DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime  @updatedAt @db.Timestamptz(3)
+
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  payment    Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  charge     Charge?  @relation(fields: [chargeId], references: [id], onDelete: SetNull)
+  createdBy  User?    @relation("MyDataCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, id])
+  @@index([tenantId, mark])
+  @@index([tenantId, statusCode])
+  @@index([tenantId, paymentId])
+  @@index([tenantId, chargeId])
+  @@map("mydata_transmissions")
 }

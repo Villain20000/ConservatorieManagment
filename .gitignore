@@ -13,4 +13,8 @@ playwright-report/
 apps/api/generated/
 apps/api/src/generated/
 apps/api/var/
+var/
+.workbuddy-ai/
+apps/api/scripts/
+install.cmd
 .qoder/

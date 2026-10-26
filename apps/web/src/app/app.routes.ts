@@ -55,6 +55,12 @@ export const routes: Routes = [
         loadComponent: () => import('./features/students/students').then((m) => m.StudentsPage),
       },
       {
+        path: 'crm',
+        title: 'MusicOS · Υποψήφιοι (CRM)',
+        canActivate: [permissionGuard('crm.read')],
+        loadComponent: () => import('./features/crm/crm').then((m) => m.CrmPage),
+      },
+      {
         path: 'students/:id',
         title: 'MusicOS · Μαθητής',
         canActivate: [permissionGuard('students.read')],
@@ -112,6 +118,18 @@ export const routes: Routes = [
         canActivate: [permissionGuard('documents.read')],
         loadComponent: () =>
           import('./features/documents/documents').then((m) => m.DocumentsPage),
+      },
+      {
+        path: 'events',
+        title: 'MusicOS · Εκδηλώσεις & Συναυλίες',
+        canActivate: [permissionGuard('events.read')],
+        loadComponent: () => import('./features/events/events').then((m) => m.EventsComponent),
+      },
+      {
+        path: 'inventory',
+        title: 'MusicOS · Όργανα & Εξοπλισμός',
+        canActivate: [permissionGuard('inventory.read')],
+        loadComponent: () => import('./features/inventory/inventory').then((m) => m.InventoryComponent),
       },
       {
         path: 'assignments',

@@ -55,6 +55,9 @@ export function navSectionsFor(
   if (has('students.read')) {
     teaching.push({ labelKey: 'nav.students', icon: 'users', route: '/app/students' });
   }
+  if (has('crm.read')) {
+    teaching.push({ labelKey: 'nav.crm', icon: 'user-plus', route: '/app/crm' });
+  }
   if (has('teachers.read')) {
     teaching.push({ labelKey: 'nav.teachers', icon: 'music', route: '/app/teachers' });
   }
@@ -69,6 +72,9 @@ export function navSectionsFor(
   }
   if (has('schedule.read')) {
     teaching.push({ labelKey: 'nav.assignments', icon: 'book', route: '/app/assignments' });
+  }
+  if (has('events.read')) {
+    teaching.push({ labelKey: 'nav.events', icon: 'calendar', route: '/app/events' });
   }
   teaching.push({ labelKey: 'nav.practice', icon: 'music', route: '/app/practice' });
   if (teaching.length) {
@@ -86,6 +92,9 @@ export function navSectionsFor(
   }
   if (has('documents.read')) {
     business.push({ labelKey: 'nav.documents', icon: 'folder', route: '/app/documents' });
+  }
+  if (has('inventory.read')) {
+    business.push({ labelKey: 'nav.inventory', icon: 'layers', route: '/app/inventory' });
   }
   if (business.length) {
     sections.push({ labelKey: 'nav.administration', items: business });

@@ -8,7 +8,8 @@ import { TranslocoService } from '@jsverse/transloco';
 import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../../core/api.service';
 import { FormatService } from '../../core/format.service';
-import type { PlatformOverview, PlatformTenant } from '../../core/models';
+import type { BillingMetrics, PlatformOverview, PlatformTenant, SubscriptionInvoice } from '../../core/models';
+import { ToastService } from '../../core/toast.service';
 import { SHARED_IMPORTS } from '../../shared/shared.imports';
 
 type SubscriptionRow = PlatformOverview['subscriptions'][number];
@@ -161,6 +162,140 @@ type SubscriptionRow = PlatformOverview['subscriptions'][number];
           </section>
         }
 
+        <!-- SaaS Commercial Billing Engine Section -->
+        <section id="billing" class="card mt-8 overflow-hidden">
+          <div class="card-head flex-wrap gap-4">
+            <div>
+              <h2 class="flex items-center gap-2 text-[16px] font-semibold tracking-tight text-ink">
+                <app-icon name="wallet" [size]="18" class="text-accent" />
+                {{ 'platform.billing.title' | transloco }}
+              </h2>
+              <p class="mt-0.5 text-[12px] text-ink-3">
+                {{ 'platform.billing.subtitle' | transloco }}
+              </p>
+            </div>
+            <button
+              type="button"
+              class="btn btn-primary btn-sm"
+              [disabled]="runningCycle()"
+              (click)="runBillingCycle()"
+            >
+              <app-icon name="refresh" [size]="14" [class.animate-spin]="runningCycle()" />
+              {{ (runningCycle() ? 'platform.billing.runningCycle' : 'platform.billing.runCycle') | transloco }}
+            </button>
+          </div>
+
+          @if (billingMetrics(); as metrics) {
+            <div class="grid grid-cols-2 gap-3 border-b border-line bg-surface-2 p-4 sm:grid-cols-3 xl:grid-cols-6">
+              <div>
+                <span class="text-[11px] font-medium text-ink-3">{{ 'platform.billing.mrr' | transloco }}</span>
+                <p class="text-[16px] font-semibold tabular-nums text-accent-strong">{{ format.money(metrics.mrr) }}</p>
+              </div>
+              <div>
+                <span class="text-[11px] font-medium text-ink-3">{{ 'platform.billing.arr' | transloco }}</span>
+                <p class="text-[16px] font-semibold tabular-nums text-ink">{{ format.money(metrics.arr) }}</p>
+              </div>
+              <div>
+                <span class="text-[11px] font-medium text-ink-3">{{ 'platform.billing.totalInvoiced' | transloco }}</span>
+                <p class="text-[16px] font-semibold tabular-nums text-ink">{{ format.money(metrics.totalInvoiced) }}</p>
+              </div>
+              <div>
+                <span class="text-[11px] font-medium text-ink-3">{{ 'platform.billing.totalCollected' | transloco }}</span>
+                <p class="text-[16px] font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">{{ format.money(metrics.totalCollected) }}</p>
+              </div>
+              <div>
+                <span class="text-[11px] font-medium text-ink-3">{{ 'platform.billing.totalOverdue' | transloco }}</span>
+                <p class="text-[16px] font-semibold tabular-nums text-amber-600 dark:text-amber-400">{{ format.money(metrics.totalOverdue) }}</p>
+              </div>
+              <div>
+                <span class="text-[11px] font-medium text-ink-3">{{ 'platform.billing.dunningActive' | transloco }}</span>
+                <p class="text-[16px] font-semibold tabular-nums" [class.text-rose-600]="metrics.pastDueSubscriptionsCount > 0">{{ metrics.pastDueSubscriptionsCount }}</p>
+              </div>
+            </div>
+          }
+
+          @if (subscriptionInvoices().length === 0) {
+            <div class="p-6">
+              <app-empty-state
+                title="platform.billing.emptyInvoices"
+                message="platform.billing.subtitle"
+                icon="receipt"
+              />
+            </div>
+          } @else {
+            <div class="table-wrap rounded-none border-0 shadow-none">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>{{ 'platform.billing.invoiceNumber' | transloco }}</th>
+                    <th>{{ 'platform.billing.tenant' | transloco }}</th>
+                    <th>{{ 'platform.billing.plan' | transloco }}</th>
+                    <th>{{ 'platform.billing.period' | transloco }}</th>
+                    <th>{{ 'platform.billing.amount' | transloco }}</th>
+                    <th>{{ 'platform.billing.status' | transloco }}</th>
+                    <th>{{ 'platform.billing.dueAt' | transloco }}</th>
+                    <th>{{ 'platform.billing.actions' | transloco }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (inv of subscriptionInvoices(); track inv.id) {
+                    <tr>
+                      <td class="font-mono text-[12px] font-semibold text-accent-strong">
+                        {{ inv.number }}
+                      </td>
+                      <td class="font-medium text-ink">
+                        {{ inv.subscription?.tenant?.name || '—' }}
+                      </td>
+                      <td>{{ inv.subscription?.plan?.name || '—' }}</td>
+                      <td class="whitespace-nowrap text-[12px]">
+                        {{ format.date(inv.periodStart) }} – {{ format.date(inv.periodEnd) }}
+                      </td>
+                      <td class="tabular-nums font-semibold">{{ format.money(inv.total) }}</td>
+                      <td>
+                        <span
+                          class="badge"
+                          [class]="inv.status === 'PAID' ? 'badge-success' : inv.status === 'OPEN' ? 'badge-warning' : 'badge-neutral'"
+                        >
+                          {{ inv.status }}
+                        </span>
+                      </td>
+                      <td class="whitespace-nowrap text-[12px]">
+                        {{ inv.dueAt ? format.date(inv.dueAt) : '—' }}
+                      </td>
+                      <td>
+                        @if (inv.status === 'OPEN') {
+                          <div class="flex items-center gap-1">
+                            <button
+                              type="button"
+                              class="btn btn-secondary btn-sm"
+                              (click)="payInvoice(inv)"
+                            >
+                              <app-icon name="wallet" [size]="13" />
+                              {{ 'platform.billing.pay' | transloco }}
+                            </button>
+                            <button
+                              type="button"
+                              class="btn-ghost btn-icon-sm text-danger hover:bg-danger-soft"
+                              (click)="simulateFailure(inv)"
+                              [title]="'platform.billing.simulateFailure' | transloco"
+                            >
+                              <app-icon name="alert" [size]="14" />
+                            </button>
+                          </div>
+                        } @else if (inv.paidAt) {
+                          <span class="text-[11.5px] text-ink-3">
+                            {{ 'platform.billing.paidAt' | transloco }}: {{ format.date(inv.paidAt) }}
+                          </span>
+                        }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </section>
+
         <section id="tenants" class="mt-8 scroll-mt-6">
           <div class="mb-3 flex items-center justify-between gap-3">
             <h2 class="text-[17px] font-semibold tracking-tight">{{ 'platform.tenants' | transloco }}</h2>
@@ -254,6 +389,7 @@ type SubscriptionRow = PlatformOverview['subscriptions'][number];
 export class PlatformOverviewPage {
   private readonly api = inject(ApiService);
   private readonly transloco = inject(TranslocoService);
+  private readonly toast = inject(ToastService);
   readonly format = inject(FormatService);
 
   readonly overview = signal<PlatformOverview | null>(null);
@@ -261,6 +397,9 @@ export class PlatformOverviewPage {
   readonly loading = signal(true);
   readonly error = signal(false);
   readonly skeletons = [1, 2, 3, 4];
+  readonly billingMetrics = signal<BillingMetrics | null>(null);
+  readonly subscriptionInvoices = signal<SubscriptionInvoice[]>([]);
+  readonly runningCycle = signal(false);
 
   constructor() {
     void this.load();
@@ -291,6 +430,63 @@ export class PlatformOverviewPage {
     return 'accent';
   }
 
+  async loadBilling(): Promise<void> {
+    try {
+      const [metrics, invoices] = await Promise.all([
+        firstValueFrom(this.api.get<BillingMetrics>('/platform/billing/metrics')),
+        firstValueFrom(this.api.list<SubscriptionInvoice>('/platform/billing/invoices')),
+      ]);
+      this.billingMetrics.set(metrics);
+      this.subscriptionInvoices.set(invoices.data);
+    } catch {
+      // Platform billing not active
+    }
+  }
+
+  async runBillingCycle(): Promise<void> {
+    this.runningCycle.set(true);
+    try {
+      await firstValueFrom(
+        this.api.post<{ generatedCount: number }>('/platform/billing/invoices/generate-cycle', {}),
+      );
+      this.toast.success('platform.billing.cycleSuccess');
+      await this.loadBilling();
+      await this.load();
+    } catch {
+      this.toast.error('common.error');
+    } finally {
+      this.runningCycle.set(false);
+    }
+  }
+
+  async payInvoice(inv: SubscriptionInvoice): Promise<void> {
+    try {
+      await firstValueFrom(
+        this.api.post(`/platform/billing/invoices/${inv.id}/pay`, { paymentMethod: 'CARD' }),
+      );
+      this.toast.success('platform.billing.paySuccess');
+      await this.loadBilling();
+      await this.load();
+    } catch {
+      this.toast.error('common.error');
+    }
+  }
+
+  async simulateFailure(inv: SubscriptionInvoice): Promise<void> {
+    try {
+      await firstValueFrom(
+        this.api.post(`/platform/billing/invoices/${inv.id}/simulate-failure`, {
+          failureCode: 'INSUFFICIENT_FUNDS',
+        }),
+      );
+      this.toast.info('platform.billing.failureSuccess');
+      await this.loadBilling();
+      await this.load();
+    } catch {
+      this.toast.error('common.error');
+    }
+  }
+
   private async load(): Promise<void> {
     this.loading.set(true);
     this.error.set(false);
@@ -301,6 +497,7 @@ export class PlatformOverviewPage {
       ]);
       this.overview.set(overview);
       this.tenants.set(tenants.data);
+      void this.loadBilling();
     } catch {
       this.overview.set(null);
       this.tenants.set([]);

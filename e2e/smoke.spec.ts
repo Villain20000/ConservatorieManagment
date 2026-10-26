@@ -68,7 +68,13 @@ test.describe('director console', () => {
     await page.goto('/app/attendance');
     await expect(page.getByRole('heading', { level: 1 })).toContainText('Παρουσιολόγιο');
 
-    await page.getByRole('button', { name: 'Προηγούμενη σελίδα' }).click();
+    for (let i = 0; i < 7; i++) {
+      if (await page.getByRole('button', { name: 'Όλοι παρόντες' }).isVisible().catch(() => false)) {
+        break;
+      }
+      await page.getByRole('button', { name: 'Προηγούμενη σελίδα' }).click();
+      await page.waitForTimeout(300);
+    }
     await expect(page.getByRole('button', { name: 'Όλοι παρόντες' })).toBeVisible();
     await page.getByRole('button', { name: 'Όλοι παρόντες' }).click();
     await page.getByRole('button', { name: 'Αποθήκευση παρουσιών' }).click();

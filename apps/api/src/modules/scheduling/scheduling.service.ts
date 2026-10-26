@@ -23,6 +23,7 @@ import type {
   UpdateLessonSeriesDto,
 } from './dto/scheduling.dto.js';
 import { addDays, buildOccurrences as buildRecurrence, groupRules, type CalendarDayRule } from './recurrence.js';
+import { getGreekStatutoryHolidays } from './greek-calendar.js';
 
 const TZ = 'Europe/Athens';
 const MAX_LESSONS_PER_SERIES = 500;
@@ -262,6 +263,39 @@ export class SchedulingService {
       kind: existing.kind,
          });
     return { success: true };
+  }
+
+  async seedGreekHolidays(year?: number) {
+    const tenantId = this.ctx.tenantId;
+    const targetYear = year ?? new Date().getFullYear();
+    const holidays = getGreekStatutoryHolidays(targetYear);
+    let createdCount = 0;
+
+    for (const holiday of holidays) {
+      const dateObj = new Date(`${holiday.date}T00:00:00.000Z`);
+      const existing = await this.prisma.calendarDay.findFirst({
+        where: { tenantId, branchId: null, date: dateObj },
+      });
+      if (!existing) {
+        await this.prisma.calendarDay.create({
+          data: {
+            tenantId,
+            branchId: null,
+            date: dateObj,
+            kind: holiday.kind,
+            name: holiday.name,
+          },
+        });
+        createdCount++;
+      }
+    }
+
+    await this.audit.record('calendarDay.seeded', 'CalendarDay', null, {
+      year: targetYear,
+      createdCount,
+    });
+
+    return { year: targetYear, createdCount, totalHolidays: holidays.length };
   }
 
   async listSeries(query: SeriesQueryDto) {
