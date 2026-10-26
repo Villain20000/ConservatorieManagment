@@ -31,6 +31,7 @@ import type {
 } from '../../core/models';
 import { ToastService } from '../../core/toast.service';
 import { SHARED_IMPORTS } from '../../shared/shared.imports';
+import { ConflictExplainerComponent } from './conflict-explainer';
 
 interface LessonDetail extends Lesson {
   notes: LessonNote[];
@@ -68,7 +69,7 @@ function isValidHex(value: string | null | undefined): value is string {
 
 @Component({
   selector: 'app-schedule-page',
-  imports: [...SHARED_IMPORTS, ReactiveFormsModule],
+  imports: [...SHARED_IMPORTS, ReactiveFormsModule, ConflictExplainerComponent],
   template: `
     <div class="page">
       <app-page-header title="schedule.title" subtitle="schedule.subtitle">
@@ -762,6 +763,14 @@ function isValidHex(value: string | null | undefined): value is string {
               }
             </div>
           </div>
+
+          <app-conflict-explainer
+            [teacherId]="seriesForm.controls.teacherId.value"
+            [roomId]="seriesForm.controls.roomId.value"
+            [startTime]="seriesForm.controls.startTime.value"
+            [durationMinutes]="seriesForm.controls.durationMinutes.value"
+            (slotApplied)="onConflictSlotApplied($event)"
+          />
         </form>
       }
 
@@ -798,6 +807,9 @@ function isValidHex(value: string | null | undefined): value is string {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class SchedulePage {
+  onConflictSlotApplied(event: { startTime: string }): void {
+    this.seriesForm.controls.startTime.setValue(event.startTime);
+  }
   private readonly api = inject(ApiService);
   protected readonly auth = inject(AuthService);
   private readonly fb = inject(FormBuilder);

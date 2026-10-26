@@ -19,6 +19,7 @@ import type {
 import { PortalContextService } from '../../core/portal-context.service';
 import { SHARED_IMPORTS } from '../../shared/shared.imports';
 import { PortalChildSelectorComponent } from '../portal/portal-child-selector';
+import { DailyDigestModalComponent } from './daily-digest-modal';
 
 const BRASS = '#b9893d';
 const GREEN = '#2f7d5d';
@@ -44,11 +45,21 @@ interface QuickAction {
 
 @Component({
   selector: 'app-dashboard',
-  imports: [SHARED_IMPORTS, PortalChildSelectorComponent],
+  imports: [SHARED_IMPORTS, PortalChildSelectorComponent, DailyDigestModalComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="page">
       <app-page-header [title]="greeting()" [translateTitle]="false" [subtitle]="subtitle()" eyebrow="dashboard.eyebrow">
+        @if (roleKey() === 'DIRECTOR' || roleKey() === 'ADMINISTRATOR') {
+          <button
+            type="button"
+            class="btn btn-secondary flex items-center gap-1.5"
+            (click)="showDailyDigestModal.set(true)"
+          >
+            <app-icon name="sparkles" [size]="15" />
+            <span>{{ 'dashboard.actions.dailyDigest' | transloco }}</span>
+          </button>
+        }
         @for (action of headerActions(); track action.link) {
           <a
             class="btn"
@@ -368,6 +379,9 @@ interface QuickAction {
           <app-empty-state title="common.noResults" message="dashboard.empty.todayLessons" icon="dashboard" />
         }
       }
+      @if (showDailyDigestModal()) {
+        <app-daily-digest-modal (close)="showDailyDigestModal.set(false)" />
+      }
     </div>
 
     <ng-template #cardHead let-title let-link="link" let-linkLabel="linkLabel">
@@ -452,6 +466,7 @@ interface QuickAction {
   `,
 })
 export class DashboardPage {
+  readonly showDailyDigestModal = signal<boolean>(false);
   private readonly api = inject(ApiService);
   private readonly auth = inject(AuthService);
   protected readonly portal = inject(PortalContextService);

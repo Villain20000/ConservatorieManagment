@@ -19,6 +19,7 @@ import type {
 } from '../../core/models';
 import { ToastService } from '../../core/toast.service';
 import { SHARED_IMPORTS } from '../../shared/shared.imports';
+import { DigitalSignatureModalComponent } from './digital-signature-modal';
 
 const DOCUMENT_TYPES: DocumentType[] = [
   'REGISTRATION_FORM',
@@ -36,7 +37,7 @@ const DOCUMENT_STATUSES: DocumentStatus[] = ['DRAFT', 'ISSUED', 'ARCHIVED'];
 
 @Component({
   selector: 'app-documents-page',
-  imports: [SHARED_IMPORTS, ReactiveFormsModule],
+  imports: [SHARED_IMPORTS, ReactiveFormsModule, DigitalSignatureModalComponent],
   template: `
     <div class="page">
       <app-page-header title="documents.title" subtitle="documents.subtitle">
@@ -278,6 +279,15 @@ const DOCUMENT_STATUSES: DocumentStatus[] = ['DRAFT', 'ISSUED', 'ARCHIVED'];
                         <button
                           type="button"
                           class="btn-ghost btn-icon-sm"
+                          (click)="selectedSignatureDoc.set(document)"
+                          [attr.aria-label]="'documents.digitalSignature' | transloco"
+                          [attr.title]="'documents.digitalSignature' | transloco"
+                        >
+                          <app-icon name="shield" [size]="15" />
+                        </button>
+                        <button
+                          type="button"
+                          class="btn-ghost btn-icon-sm"
                           [disabled]="downloadingId() === document.id"
                           (click)="download(document)"
                           [attr.aria-label]="'documents.download' | transloco"
@@ -413,10 +423,15 @@ const DOCUMENT_STATUSES: DocumentStatus[] = ['DRAFT', 'ISSUED', 'ARCHIVED'];
         </div>
       </form>
     </app-drawer>
+
+      @if (selectedSignatureDoc(); as sigDoc) {
+        <app-digital-signature-modal [doc]="sigDoc" (close)="selectedSignatureDoc.set(null)" />
+      }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DocumentsPage {
+  readonly selectedSignatureDoc = signal<DocumentRecord | null>(null);
   private readonly api = inject(ApiService);
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);

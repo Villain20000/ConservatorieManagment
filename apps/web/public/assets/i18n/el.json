@@ -365,7 +365,8 @@
       "addStudent": "Νέος μαθητής",
       "newAnnouncement": "Νέα ανακοίνωση",
       "openFinance": "Οικονομικά",
-      "viewStudents": "Όλοι οι μαθητές"
+      "viewStudents": "Όλοι οι μαθητές",
+      "dailyDigest": "Ημερήσια Σύνοψη AI"
     },
     "lessonStudents": "{{count}} μαθητές",
     "unmarked": "Χωρίς καταγραφή",
@@ -1027,7 +1028,8 @@
     "examFilter": "Εξέταση",
     "fromFilter": "Από",
     "toFilter": "Έως",
-    "approve": "Έγκριση"
+    "approve": "Έγκριση",
+    "digitalSignature": "Ψηφιακή Υπογραφή (eIDAS / Gov.gr)"
   },
   "announcements": {
     "title": "Ανακοινώσεις",
@@ -1474,6 +1476,14 @@
       "statusPending": "ΠΡΟΣ ΕΓΚΡΙΣΗ",
       "clear": "Απόρριψη",
       "hint": "Οι προτάσεις AI δεν δημοσιεύονται ποτέ αυτόματα."
+    },
+    "tabs": {
+      "tools": "Επισκόπηση & Εργαλεία",
+      "analytics": "Στατιστικά Μελέτης",
+      "earTrainer": "Ακουστική Εξάσκηση",
+      "rhythm": "Ρυθμική Υπαγόρευση",
+      "looper": "A/B Looper",
+      "scores": "Παρτιτούρες MusicXML"
     }
   },
   "assignments": {

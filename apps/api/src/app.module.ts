@@ -29,6 +29,8 @@ import { InventoryModule } from './modules/inventory/inventory.module.js';
 import { PeopleModule } from './modules/people/people.module.js';
 import { PlatformModule } from './modules/platform/platform.module.js';
 import { PortalModule } from './modules/portal/portal.module.js';
+import { PracticeModule } from './modules/practice/practice.module.js';
+import { IntelligenceModule } from './modules/intelligence/intelligence.module.js';
 import { SchedulingModule } from './modules/scheduling/scheduling.module.js';
 import { TenantsModule } from './modules/tenants/tenants.module.js';
 import { TrashModule } from './modules/trash/trash.module.js';
@@ -80,6 +82,8 @@ import { TrashModule } from './modules/trash/trash.module.js';
     InventoryModule,
     PlatformModule,
     PortalModule,
+    PracticeModule,
+    IntelligenceModule,
     TrashModule,
   ],
   providers: [

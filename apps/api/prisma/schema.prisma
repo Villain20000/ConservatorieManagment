@@ -513,6 +513,10 @@ model Tenant {
   assetMaintenance AssetMaintenance[]
   eventAssetReservations EventAssetReservation[]
   myDataTransmissions MyDataTransmission[]
+  practiceSessions PracticeSession[]
+  dailyDigests DailyDigest[]
+  pedagogicalRecommendations PedagogicalRecommendation[]
+  signatureRequests ElectronicSignatureRequest[]
 
   @@map("tenants")
 }
@@ -759,6 +763,7 @@ model User {
   maintenanceCreated AssetMaintenance[] @relation("MaintenanceCreatedBy")
   reservationsCreated EventAssetReservation[] @relation("ReservationCreatedBy")
   myDataTransmissionsCreated MyDataTransmission[] @relation("MyDataCreatedBy")
+  digestsReviewed DailyDigest[] @relation("DigestReviewedBy")
 
   @@map("users")
 }
@@ -979,6 +984,7 @@ model Teacher {
   performancesSupervised EventPerformance[] @relation("PerformanceTeacher")
   performancesAccompanied EventPerformance[] @relation("PerformanceAccompanist")
   assignments Assignment[]
+  pedagogicalRecommendations PedagogicalRecommendation[]
 
   @@unique([tenantId, userId])
   @@unique([tenantId, id])
@@ -1034,6 +1040,8 @@ model Student {
   eventPerformances EventPerformance[]
   eventRegistrations EventRegistration[]
   assetLoans       AssetLoan[]
+  practiceSessions PracticeSession[]
+  pedagogicalRecommendations PedagogicalRecommendation[]
 
   @@unique([tenantId, registrationNumber])
   @@unique([tenantId, id])
@@ -1485,6 +1493,7 @@ model DocumentRecord {
   issuedBy User?   @relation("DocumentIssuedBy", fields: [issuedById], references: [id], onDelete: SetNull)
   preparedBy User? @relation("DocumentPreparedBy", fields: [preparedById], references: [id], onDelete: SetNull)
   approvedBy User? @relation("DocumentApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  signatureRequests ElectronicSignatureRequest[]
 
   @@unique([tenantId, protocolNumber])
   @@index([tenantId, studentId])
@@ -2146,4 +2155,108 @@ model MyDataTransmission {
   @@index([tenantId, paymentId])
   @@index([tenantId, chargeId])
   @@map("mydata_transmissions")
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 5 — Premium Music Education & AI Automation Models
+// ─────────────────────────────────────────────────────────────────────────────
+
+model PracticeSession {
+  id              String    @id @default(uuid(7)) @db.Uuid
+  tenantId        String    @db.Uuid
+  studentId       String    @db.Uuid
+  startedAt       DateTime  @db.Timestamptz(3)
+  endedAt         DateTime  @db.Timestamptz(3)
+  durationMinutes Int
+  instrument      String
+  pieceTitle      String?
+  tempoBpm        Int?
+  rating          Int?      // 1 to 5 stars
+  notes           String?
+  metrics         Json?     // toolUsed, repetitionCount, accuracyScore
+  createdAt       DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @db.Timestamptz(3)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, id])
+  @@index([tenantId, studentId, startedAt])
+  @@index([tenantId, startedAt])
+  @@map("practice_sessions")
+}
+
+model DailyDigest {
+  id              String    @id @default(uuid(7)) @db.Uuid
+  tenantId        String    @db.Uuid
+  digestDate      DateTime  @db.Date
+  title           String
+  contentMarkdown String    @db.Text
+  metricsSummary  Json
+  status          String    @default("DRAFT") // DRAFT, REVIEWED, APPROVED, DISPATCHED
+  reviewedById    String?   @db.Uuid
+  reviewedAt      DateTime? @db.Timestamptz(3)
+  createdAt       DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @db.Timestamptz(3)
+
+  tenant     Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  reviewedBy User?  @relation("DigestReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, digestDate])
+  @@index([tenantId, status])
+  @@map("daily_digests")
+}
+
+model PedagogicalRecommendation {
+  id                  String    @id @default(uuid(7)) @db.Uuid
+  tenantId            String    @db.Uuid
+  studentId           String    @db.Uuid
+  teacherId           String    @db.Uuid
+  title               String
+  category            String    @default("TECHNIQUE") // TECHNIQUE, REPERTOIRE, THEORY, RHYTHM, EAR_TRAINING, POSTURE
+  rationale           String    @db.Text
+  prescribedExercises Json      // structured exercise targets
+  status              String    @default("PENDING_REVIEW") // PENDING_REVIEW, APPROVED, MODIFIED, REJECTED
+  teacherFeedback     String?   @db.Text
+  reviewedAt          DateTime? @db.Timestamptz(3)
+  createdAt           DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime  @updatedAt @db.Timestamptz(3)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, id])
+  @@index([tenantId, studentId])
+  @@index([tenantId, teacherId, status])
+  @@map("pedagogical_recommendations")
+}
+
+model ElectronicSignatureRequest {
+  id                 String    @id @default(uuid(7)) @db.Uuid
+  tenantId           String    @db.Uuid
+  documentId         String    @db.Uuid
+  signerName         String
+  signerEmail        String
+  signerRole         String    // STUDENT, GUARDIAN, DIRECTOR, TEACHER
+  provider           String    @default("INTERNAL_EIDAS") // GOV_GR, DOCUSIGN, INTERNAL_EIDAS
+  externalEnvelopeId String?   @unique
+  verificationToken  String?   @unique
+  status             String    @default("PENDING") // PENDING, SIGNED, DECLINED, EXPIRED
+  signedAt           DateTime? @db.Timestamptz(3)
+  ipAddress          String?
+  certificateHash    String?
+  auditTrail         Json?
+  createdAt          DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime  @updatedAt @db.Timestamptz(3)
+
+  tenant   Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  document DocumentRecord @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, id])
+  @@index([tenantId, documentId])
+  @@index([tenantId, status])
+  @@map("electronic_signature_requests")
 }

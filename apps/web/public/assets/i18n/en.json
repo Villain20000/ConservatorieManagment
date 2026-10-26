@@ -365,7 +365,8 @@
       "addStudent": "New student",
       "newAnnouncement": "New announcement",
       "openFinance": "Finance",
-      "viewStudents": "All students"
+      "viewStudents": "All students",
+      "dailyDigest": "AI Daily Digest"
     },
     "lessonStudents": "{{count}} students",
     "unmarked": "Not recorded",
@@ -1027,7 +1028,8 @@
     "examFilter": "Exam",
     "fromFilter": "From",
     "toFilter": "To",
-    "approve": "Approve"
+    "approve": "Approve",
+    "digitalSignature": "Digital Signature (eIDAS / Gov.gr)"
   },
   "announcements": {
     "title": "Announcements",
@@ -1474,6 +1476,14 @@
       "statusPending": "PENDING REVIEW",
       "clear": "Discard",
       "hint": "AI suggestions are never published automatically."
+    },
+    "tabs": {
+      "tools": "Overview & Tools",
+      "analytics": "Practice Analytics",
+      "earTrainer": "Ear Training",
+      "rhythm": "Rhythm Dictation",
+      "looper": "A/B Looper",
+      "scores": "MusicXML Scores"
     }
   },
   "assignments": {

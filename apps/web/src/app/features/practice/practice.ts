@@ -20,6 +20,10 @@ import { PortalChildSelectorComponent } from '../portal/portal-child-selector';
 import { MetronomeComponent } from './metronome';
 import { TunerComponent } from './tuner';
 import { EarTrainerComponent } from './ear-trainer';
+import { RhythmDictationComponent } from './rhythm-dictation';
+import { AbLooperComponent } from './ab-looper';
+import { MusicXmlViewerComponent } from './musicxml-viewer';
+import { PracticeAnalyticsComponent } from './practice-analytics';
 
 interface PracticeDraft {
   text: string;
@@ -29,15 +33,36 @@ interface PracticeDraft {
 
 const DRAFT_KEY = 'musicos.practice-draft';
 
+export type PracticeTabKey =
+  | 'tools'
+  | 'analytics'
+  | 'earTrainer'
+  | 'rhythm'
+  | 'looper'
+  | 'scores';
+
 /**
- * Learning workspace: next-lesson overview, client-side metronome/tuner,
- * explicitly pinned offline material, and an AI practice draft that stays a
- * draft until a teacher approves it — drafts are local-only and never
- * published or sent automatically.
+ * Advanced Music Learning Studio:
+ * 1. Overview & Tools (Metronome, Tuner, Next Lesson, Offline Pinned Material, Draft Notes)
+ * 2. Practice Engagement Analytics (Streak, weekly minutes, consistency distribution, log drawer)
+ * 3. Ear Training Studio (Intervals & Chords recognition)
+ * 4. Rhythm Dictation (4/4 time signature, count-in, playback, note entry & scoring)
+ * 5. A/B Looper (Loop markers, speed rates 50-120%, count-in, repetition counter)
+ * 6. MusicXML Studio (Interactive score viewer, measure tracking, playback, XML source)
  */
 @Component({
   selector: 'app-practice',
-  imports: [SHARED_IMPORTS, PortalChildSelectorComponent, MetronomeComponent, TunerComponent, EarTrainerComponent],
+  imports: [
+    SHARED_IMPORTS,
+    PortalChildSelectorComponent,
+    MetronomeComponent,
+    TunerComponent,
+    EarTrainerComponent,
+    RhythmDictationComponent,
+    AbLooperComponent,
+    MusicXmlViewerComponent,
+    PracticeAnalyticsComponent,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="page">
@@ -51,140 +76,174 @@ const DRAFT_KEY = 'musicos.practice-draft';
         <app-portal-child-selector (changed)="reload()" />
       }
 
-      @if (isPortal()) {
-        <section class="card mb-4 p-5">
-          <h2 class="text-sm font-semibold">{{ 'practice.overview.title' | transloco }}</h2>
-          @if (overviewLoading()) {
-            <div class="skeleton mt-3 h-16 rounded-xl"></div>
-          } @else if (overview(); as info) {
-            @if (info.nextLesson) {
-              <p class="mt-2 text-xl font-semibold">{{ info.nextLesson.title }}</p>
-              <p class="mt-1 text-[13px] text-ink-2">
-                {{ format.date(info.nextLesson.startsAt, 'long') }} ·
-                {{ format.timeRange(info.nextLesson.startsAt, info.nextLesson.endsAt) }}
-              </p>
-            } @else {
-              <p class="mt-2 text-[13.5px] text-ink-2">{{ 'practice.overview.empty' | transloco }}</p>
-            }
-            <div class="mt-3 flex flex-wrap gap-2 text-[12px]">
-              <span class="rounded-full border border-line bg-surface-2 px-2.5 py-1">
-                {{ 'practice.overview.attendance' | transloco }}:
-                <strong class="tabular-nums">{{ format.percent(info.attendance.rate) }}</strong>
-              </span>
-              <span class="rounded-full border border-line bg-surface-2 px-2.5 py-1">
-                {{ 'practice.overview.outstanding' | transloco }}:
-                <strong class="tabular-nums">{{ format.money(info.finance.outstanding) }}</strong>
-              </span>
-              <a class="rounded-full border border-line px-2.5 py-1 font-medium text-accent-strong hover:underline" routerLink="/app/portal/schedule">
-                {{ 'practice.overview.openSchedule' | transloco }}
-              </a>
-            </div>
-          }
-        </section>
-      }
-
-      <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <app-metronome />
-        <app-tuner />
+      <!-- Studio Navigation Tabs -->
+      <div class="mt-4 flex flex-wrap gap-2 border-b border-line pb-3">
+        @for (tab of tabs; track tab.key) {
+          <button
+            type="button"
+            class="btn btn-sm flex items-center gap-1.5"
+            [class.btn-primary]="activeTab() === tab.key"
+            [class.btn-secondary]="activeTab() !== tab.key"
+            (click)="activeTab.set(tab.key)"
+          >
+            <app-icon [name]="tab.icon" [size]="14" />
+            <span>{{ tab.label | transloco }}</span>
+          </button>
+        }
       </div>
 
+      <!-- Tab Content -->
       <div class="mt-4">
-        <app-ear-trainer />
-      </div>
-
-      @if (isPortal()) {
-        <section class="card mt-4 p-5">
-          <h2 class="text-sm font-semibold">{{ 'practice.material.title' | transloco }}</h2>
-          <p class="mt-0.5 text-[12px] text-ink-3">{{ 'practice.material.subtitle' | transloco }}</p>
-
-          @if (pins().length > 0) {
-            <p class="mb-2 mt-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-3">
-              {{ 'practice.material.pinned' | transloco }} ({{ pins().length }})
-            </p>
-            <div class="space-y-2">
-              @for (pin of pins(); track pin.id) {
-                <div class="flex items-center gap-3 rounded-xl border border-line px-3.5 py-2.5">
-                  <app-icon name="folder" [size]="15" class="shrink-0 text-accent" />
-                  <p class="min-w-0 flex-1 truncate text-[13px] font-medium">{{ pin.title }}</p>
-                  <button type="button" class="btn btn-secondary btn-sm" (click)="openPinned(pin)">
-                    {{ 'practice.material.open' | transloco }}
-                  </button>
-                  <button type="button" class="btn-ghost btn-icon-sm" (click)="unpin(pin.id)" [attr.aria-label]="'practice.material.unpin' | transloco">
-                    <app-icon name="x" [size]="14" />
-                  </button>
-                </div>
-              }
-            </div>
-          } @else {
-            <p class="mt-4 text-[12.5px] text-ink-3">{{ 'practice.material.empty' | transloco }}</p>
-          }
-
-          <p class="mb-2 mt-5 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-3">
-            {{ 'practice.material.available' | transloco }}
-          </p>
-          <div class="space-y-2">
-            @for (document of documents(); track document.id) {
-              <div class="flex items-center gap-3 rounded-xl border border-line px-3.5 py-2.5">
-                <app-icon name="file-text" [size]="15" class="shrink-0" />
-                <p class="min-w-0 flex-1 truncate text-[13px] font-medium">{{ document.title }}</p>
-                @if (offline.isPinned(document.id)) {
-                  <span class="text-[11px] font-medium text-[#2f7d5d]">
-                    {{ 'practice.material.offline' | transloco }}
-                  </span>
-                } @else {
-                  <button
-                    type="button"
-                    class="btn btn-secondary btn-sm"
-                    [disabled]="pinningId() === document.id"
-                    (click)="pin(document)"
-                  >
-                    {{ 'practice.material.pin' | transloco }}
-                  </button>
+        @switch (activeTab()) {
+          @case ('tools') {
+            @if (isPortal()) {
+              <section class="card mb-4 p-5">
+                <h2 class="text-sm font-semibold">{{ 'practice.overview.title' | transloco }}</h2>
+                @if (overviewLoading()) {
+                  <div class="skeleton mt-3 h-16 rounded-xl"></div>
+                } @else if (overview(); as info) {
+                  @if (info.nextLesson) {
+                    <p class="mt-2 text-xl font-semibold">{{ info.nextLesson.title }}</p>
+                    <p class="mt-1 text-[13px] text-ink-2">
+                      {{ format.date(info.nextLesson.startsAt, 'long') }} ·
+                      {{ format.timeRange(info.nextLesson.startsAt, info.nextLesson.endsAt) }}
+                    </p>
+                  } @else {
+                    <p class="mt-2 text-[13.5px] text-ink-2">{{ 'practice.overview.empty' | transloco }}</p>
+                  }
+                  <div class="mt-3 flex flex-wrap gap-2 text-[12px]">
+                    <span class="rounded-full border border-line bg-surface-2 px-2.5 py-1">
+                      {{ 'practice.overview.attendance' | transloco }}:
+                      <strong class="tabular-nums">{{ format.percent(info.attendance.rate) }}</strong>
+                    </span>
+                    <span class="rounded-full border border-line bg-surface-2 px-2.5 py-1">
+                      {{ 'practice.overview.outstanding' | transloco }}:
+                      <strong class="tabular-nums">{{ format.money(info.finance.outstanding) }}</strong>
+                    </span>
+                    <a class="rounded-full border border-line px-2.5 py-1 font-medium text-accent-strong hover:underline" routerLink="/app/portal/schedule">
+                      {{ 'practice.overview.openSchedule' | transloco }}
+                    </a>
+                  </div>
                 }
-              </div>
-            } @empty {
-              <app-empty-state title="portal.documents.empty" icon="folder" />
+              </section>
             }
-          </div>
-          <p class="mt-3 text-[11.5px] text-ink-3">{{ 'practice.material.note' | transloco }}</p>
-        </section>
 
-        <section class="card mt-4 p-5">
-          <div class="flex items-center gap-2">
-            <h2 class="text-sm font-semibold">{{ 'practice.draft.title' | transloco }}</h2>
-            <span class="rounded-full border border-line bg-surface-2 px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-wide text-ink-3">
-              {{ (draft().status === 'pending' ? 'practice.draft.statusPending' : 'practice.draft.statusDraft') | transloco }}
-            </span>
-          </div>
-          <p class="mt-0.5 text-[12px] text-ink-3">{{ 'practice.draft.subtitle' | transloco }}</p>
-          <textarea name="notes"
-            class="mt-3 min-h-[96px] w-full rounded-xl border border-line bg-surface-2 p-3 text-[13.5px] leading-relaxed outline-none focus:border-accent"
-            [placeholder]="'practice.draft.placeholder' | transloco"
-            [value]="draft().text"
-            (input)="draft.update((d) => ({ ...d, text: $any($event.target).value }))"
-          ></textarea>
-          <div class="mt-3 flex flex-wrap gap-2">
-            <button type="button" class="btn btn-secondary btn-sm" (click)="saveDraft()">
-              {{ 'practice.draft.save' | transloco }}
-            </button>
-            @if (draft().text.trim()) {
-              <button type="button" class="btn btn-secondary btn-sm" (click)="requestApproval()">
-                {{ 'practice.draft.requestApproval' | transloco }}
-              </button>
-              <button type="button" class="btn-ghost btn-icon-sm" (click)="clearDraft()" [attr.aria-label]="'practice.draft.clear' | transloco">
-                <app-icon name="trash" [size]="14" />
-              </button>
+            <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <app-metronome />
+              <app-tuner />
+            </div>
+
+            @if (isPortal()) {
+              <section class="card mt-4 p-5">
+                <h2 class="text-sm font-semibold">{{ 'practice.material.title' | transloco }}</h2>
+                <p class="mt-0.5 text-[12px] text-ink-3">{{ 'practice.material.subtitle' | transloco }}</p>
+
+                @if (pins().length > 0) {
+                  <p class="mb-2 mt-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-3">
+                    {{ 'practice.material.pinned' | transloco }} ({{ pins().length }})
+                  </p>
+                  <div class="space-y-2">
+                    @for (pin of pins(); track pin.id) {
+                      <div class="flex items-center gap-3 rounded-xl border border-line px-3.5 py-2.5">
+                        <app-icon name="folder" [size]="15" class="shrink-0 text-accent" />
+                        <p class="min-w-0 flex-1 truncate text-[13px] font-medium">{{ pin.title }}</p>
+                        <button type="button" class="btn btn-secondary btn-sm" (click)="openPinned(pin)">
+                          {{ 'practice.material.open' | transloco }}
+                        </button>
+                        <button type="button" class="btn-ghost btn-icon-sm" (click)="unpin(pin.id)" [attr.aria-label]="'practice.material.unpin' | transloco">
+                          <app-icon name="x" [size]="14" />
+                        </button>
+                      </div>
+                    }
+                  </div>
+                } @else {
+                  <p class="mt-4 text-[12.5px] text-ink-3">{{ 'practice.material.empty' | transloco }}</p>
+                }
+
+                <p class="mb-2 mt-5 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-3">
+                  {{ 'practice.material.available' | transloco }}
+                </p>
+                <div class="space-y-2">
+                  @for (document of documents(); track document.id) {
+                    <div class="flex items-center gap-3 rounded-xl border border-line px-3.5 py-2.5">
+                      <app-icon name="file-text" [size]="15" class="shrink-0" />
+                      <p class="min-w-0 flex-1 truncate text-[13px] font-medium">{{ document.title }}</p>
+                      @if (offline.isPinned(document.id)) {
+                        <span class="text-[11px] font-medium text-[#2f7d5d]">
+                          {{ 'practice.material.offline' | transloco }}
+                        </span>
+                      } @else {
+                        <button
+                          type="button"
+                          class="btn btn-secondary btn-sm"
+                          [disabled]="pinningId() === document.id"
+                          (click)="pin(document)"
+                        >
+                          {{ 'practice.material.pin' | transloco }}
+                        </button>
+                      }
+                    </div>
+                  } @empty {
+                    <app-empty-state title="portal.documents.empty" icon="folder" />
+                  }
+                </div>
+                <p class="mt-3 text-[11.5px] text-ink-3">{{ 'practice.material.note' | transloco }}</p>
+              </section>
+
+              <section class="card mt-4 p-5">
+                <div class="flex items-center gap-2">
+                  <h2 class="text-sm font-semibold">{{ 'practice.draft.title' | transloco }}</h2>
+                  <span class="rounded-full border border-line bg-surface-2 px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-wide text-ink-3">
+                    {{ (draft().status === 'pending' ? 'practice.draft.statusPending' : 'practice.draft.statusDraft') | transloco }}
+                  </span>
+                </div>
+                <p class="mt-0.5 text-[12px] text-ink-3">{{ 'practice.draft.subtitle' | transloco }}</p>
+                <textarea name="notes"
+                  class="mt-3 min-h-[96px] w-full rounded-xl border border-line bg-surface-2 p-3 text-[13.5px] leading-relaxed outline-none focus:border-accent"
+                  [placeholder]="'practice.draft.placeholder' | transloco"
+                  [value]="draft().text"
+                  (input)="draft.update((d) => ({ ...d, text: $any($event.target).value }))"
+                ></textarea>
+                <div class="mt-3 flex flex-wrap gap-2">
+                  <button type="button" class="btn btn-secondary btn-sm" (click)="saveDraft()">
+                    {{ 'practice.draft.save' | transloco }}
+                  </button>
+                  @if (draft().text.trim()) {
+                    <button type="button" class="btn btn-secondary btn-sm" (click)="requestApproval()">
+                      {{ 'practice.draft.requestApproval' | transloco }}
+                    </button>
+                    <button type="button" class="btn-ghost btn-icon-sm" (click)="clearDraft()" [attr.aria-label]="'practice.draft.clear' | transloco">
+                      <app-icon name="trash" [size]="14" />
+                    </button>
+                  }
+                </div>
+                @if (draftSaved()) {
+                  <p class="mt-2 text-[12px] font-medium text-[#2f7d5d]">{{ 'practice.draft.saved' | transloco }}</p>
+                }
+                @if (draft().status === 'pending') {
+                  <p class="mt-2 text-[12px] font-medium text-ink-2">{{ 'practice.draft.pending' | transloco }}</p>
+                }
+                <p class="mt-1 text-[11.5px] text-ink-3">{{ 'practice.draft.hint' | transloco }}</p>
+              </section>
             }
-          </div>
-          @if (draftSaved()) {
-            <p class="mt-2 text-[12px] font-medium text-[#2f7d5d]">{{ 'practice.draft.saved' | transloco }}</p>
           }
-          @if (draft().status === 'pending') {
-            <p class="mt-2 text-[12px] font-medium text-ink-2">{{ 'practice.draft.pending' | transloco }}</p>
+          @case ('analytics') {
+            <app-practice-analytics />
           }
-          <p class="mt-1 text-[11.5px] text-ink-3">{{ 'practice.draft.hint' | transloco }}</p>
-        </section>
-      }
+          @case ('earTrainer') {
+            <app-ear-trainer />
+          }
+          @case ('rhythm') {
+            <app-rhythm-dictation />
+          }
+          @case ('looper') {
+            <app-ab-looper />
+          }
+          @case ('scores') {
+            <app-musicxml-viewer />
+          }
+        }
+      </div>
     </div>
   `,
 })
@@ -194,6 +253,17 @@ export class PracticePage {
   protected readonly format = inject(FormatService);
   protected readonly portal = inject(PortalContextService);
   protected readonly offline = inject(OfflineMaterialService);
+
+  readonly activeTab = signal<PracticeTabKey>('tools');
+
+  readonly tabs: { key: PracticeTabKey; label: string; icon: string }[] = [
+    { key: 'tools', label: 'practice.tabs.tools', icon: 'wrench' },
+    { key: 'analytics', label: 'practice.tabs.analytics', icon: 'bar-chart' },
+    { key: 'earTrainer', label: 'practice.tabs.earTrainer', icon: 'headphones' },
+    { key: 'rhythm', label: 'practice.tabs.rhythm', icon: 'activity' },
+    { key: 'looper', label: 'practice.tabs.looper', icon: 'repeat' },
+    { key: 'scores', label: 'practice.tabs.scores', icon: 'music' },
+  ];
 
   readonly overview = signal<PortalOverview | null>(null);
   readonly overviewLoading = signal(false);
